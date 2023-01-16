@@ -175,7 +175,7 @@ static int_fast16_t ESFM_envelope_calc_exp(uint_fast16_t level)
 {
 	if (level > 0x1fff)
 	{
-	    level = 0x1fff;
+		level = 0x1fff;
 	}
 	return (exprom[level & 0xff] << 1) >> (level >> 8);
 }
@@ -187,15 +187,15 @@ static int_fast16_t ESFM_envelope_calc_sin0(uint_fast16_t phase, uint_fast16_t e
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
-	    neg = 0xffff;
+		neg = 0xffff;
 	}
 	if (phase & 0x100)
 	{
-	    out = logsinrom[(phase & 0xff) ^ 0xff];
+		out = logsinrom[(phase & 0xff) ^ 0xff];
 	}
 	else
 	{
-	    out = logsinrom[phase & 0xff];
+		out = logsinrom[phase & 0xff];
 	}
 	return ESFM_envelope_calc_exp(out + (envelope << 3)) ^ neg;
 }
@@ -206,15 +206,15 @@ static int_fast16_t ESFM_envelope_calc_sin1(uint_fast16_t phase, uint_fast16_t e
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
-	    out = 0x1000;
+		out = 0x1000;
 	}
 	else if (phase & 0x100)
 	{
-	    out = logsinrom[(phase & 0xff) ^ 0xff];
+		out = logsinrom[(phase & 0xff) ^ 0xff];
 	}
 	else
 	{
-	    out = logsinrom[phase & 0xff];
+		out = logsinrom[phase & 0xff];
 	}
 	return ESFM_envelope_calc_exp(out + (envelope << 3));
 }
@@ -225,11 +225,11 @@ static int_fast16_t ESFM_envelope_calc_sin2(uint_fast16_t phase, uint_fast16_t e
 	phase &= 0x3ff;
 	if (phase & 0x100)
 	{
-	    out = logsinrom[(phase & 0xff) ^ 0xff];
+		out = logsinrom[(phase & 0xff) ^ 0xff];
 	}
 	else
 	{
-	    out = logsinrom[phase & 0xff];
+		out = logsinrom[phase & 0xff];
 	}
 	return ESFM_envelope_calc_exp(out + (envelope << 3));
 }
@@ -240,11 +240,11 @@ static int_fast16_t ESFM_envelope_calc_sin3(uint_fast16_t phase, uint_fast16_t e
 	phase &= 0x3ff;
 	if (phase & 0x100)
 	{
-	    out = 0x1000;
+		out = 0x1000;
 	}
 	else
 	{
-	    out = logsinrom[phase & 0xff];
+		out = logsinrom[phase & 0xff];
 	}
 	return ESFM_envelope_calc_exp(out + (envelope << 3));
 }
@@ -256,19 +256,19 @@ static int_fast16_t ESFM_envelope_calc_sin4(uint_fast16_t phase, uint_fast16_t e
 	phase &= 0x3ff;
 	if ((phase & 0x300) == 0x100)
 	{
-	    neg = 0xffff;
+		neg = 0xffff;
 	}
 	if (phase & 0x200)
 	{
-	    out = 0x1000;
+		out = 0x1000;
 	}
 	else if (phase & 0x80)
 	{
-	    out = logsinrom[((phase ^ 0xff) << 1) & 0xff];
+		out = logsinrom[((phase ^ 0xff) << 1) & 0xff];
 	}
 	else
 	{
-	    out = logsinrom[(phase << 1) & 0xff];
+		out = logsinrom[(phase << 1) & 0xff];
 	}
 	return ESFM_envelope_calc_exp(out + (envelope << 3)) ^ neg;
 }
@@ -279,15 +279,15 @@ static int_fast16_t ESFM_envelope_calc_sin5(uint_fast16_t phase, uint_fast16_t e
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
-	    out = 0x1000;
+		out = 0x1000;
 	}
 	else if (phase & 0x80)
 	{
-	    out = logsinrom[((phase ^ 0xff) << 1) & 0xff];
+		out = logsinrom[((phase ^ 0xff) << 1) & 0xff];
 	}
 	else
 	{
-	    out = logsinrom[(phase << 1) & 0xff];
+		out = logsinrom[(phase << 1) & 0xff];
 	}
 	return ESFM_envelope_calc_exp(out + (envelope << 3));
 }
@@ -298,7 +298,7 @@ static int_fast16_t ESFM_envelope_calc_sin6(uint_fast16_t phase, uint_fast16_t e
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
-	    neg = 0xffff;
+		neg = 0xffff;
 	}
 	return ESFM_envelope_calc_exp(envelope << 3) ^ neg;
 }
@@ -310,8 +310,8 @@ static int_fast16_t ESFM_envelope_calc_sin7(uint_fast16_t phase, uint_fast16_t e
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
-	    neg = 0xffff;
-	    phase = (phase & 0x1ff) ^ 0x1ff;
+		neg = 0xffff;
+		phase = (phase & 0x1ff) ^ 0x1ff;
 	}
 	out = phase << 3;
 	return ESFM_envelope_calc_exp(out + (envelope << 3)) ^ neg;
@@ -512,6 +512,97 @@ ESFM_envelope_calc(esfm_slot *slot)
 	{
 		slot->internal.eg_state = EG_RELEASE;
 	}
+}
+
+static void ESFM_phase_generate(esfm_slot *slot)
+{
+	esfm_chip *chip;
+	uint10 f_num;
+	uint_fast32_t basefreq;
+	bool rm_xor, n_bit;
+	uint23 noise;
+	uint10 phase;
+
+	chip = slot->chip;
+	f_num = slot->f_num;
+	if (slot->vibrato_en)
+	{
+		int8_t range;
+		uint8_t vibpos;
+
+		range = (f_num >> 7) & 7;
+		vibpos = slot->chip->vibrato_pos;
+
+		if (!(vibpos & 3))
+		{
+			range = 0;
+		}
+		else if (vibpos & 1)
+		{
+			range >>= 1;
+		}
+		range >>= !slot->vibrato_deep;
+
+		if (vibpos & 4)
+		{
+			range = -range;
+		}
+		f_num += range;
+	}
+	basefreq = (f_num << slot->block) >> 1;
+	phase = (uint16_t)(slot->internal.phase_acc >> 9);
+	if (slot->internal.phase_reset)
+	{
+		slot->internal.phase_acc = 0;
+	}
+	slot->internal.phase_acc += (basefreq * mt[slot->mult]) >> 1;
+	slot->internal.phase_acc &= (1 << 19) - 1;
+	/* Rhythm mode */
+	noise = chip->lfsr;
+	slot->internal.phase_out = phase;
+	if (slot->slot_idx == 3 && slot->rhy_noise)
+	{
+		esfm_slot *prev_slot = &slot->channel->slots[2];
+		
+		chip->rm_hh_bit2 = (phase >> 2) & 1;
+		chip->rm_hh_bit3 = (phase >> 3) & 1;
+		chip->rm_hh_bit7 = (phase >> 7) & 1;
+		chip->rm_hh_bit8 = (phase >> 8) & 1;
+		
+		chip->rm_tc_bit3 = (prev_slot->internal.phase_out >> 3) & 1;
+		chip->rm_tc_bit5 = (prev_slot->internal.phase_out >> 5) & 1;
+		
+		rm_xor = (chip->rm_hh_bit2 ^ chip->rm_hh_bit7)
+		       | (chip->rm_hh_bit3 ^ chip->rm_tc_bit5)
+		       | (chip->rm_tc_bit3 ^ chip->rm_tc_bit5);
+		
+		switch(slot->rhy_noise)
+		{
+			case 1:
+				// SD
+				slot->internal.phase_out = (chip->rm_hh_bit8 << 9)
+					| ((chip->rm_hh_bit8 ^ (noise & 1)) << 8);
+				break;
+			case 2:
+				// HH
+				slot->internal.phase_out = rm_xor << 9;
+				if (rm_xor ^ (noise & 1))
+				{
+					slot->internal.phase_out |= 0xd0;
+				}
+				else
+				{
+					slot->internal.phase_out |= 0x34;
+				}
+				break;
+			case 3:
+				slot->internal.phase_out = (rm_xor << 9) | 0x80;
+				break;
+		}
+	}
+
+	n_bit = ((noise >> 14) ^ noise) & 0x01;
+	chip->lfsr = (noise >> 1) | (n_bit << 22);
 }
 
 void ESFM_init (esfm_chip *chip)

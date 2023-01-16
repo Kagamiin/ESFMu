@@ -241,8 +241,8 @@ ESFM_readback_reg_native (esfm_chip *chip, int16_t address)
 	else if (address < KEY_ON_REGS_START + 20)
 	{
 		// Key-on channels 17 and 18 (each half)
-		size_t channel_idx = 16 + address & 0x01;
-		bool second_half = address & 0x03;
+		size_t channel_idx = 16 + address & 0x03;
+		bool second_half = address & 0x01;
 		esfm_channel *channel = &chip->channels[channel_idx];
 		if (second_half)
 		{

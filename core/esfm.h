@@ -31,6 +31,8 @@ typedef uint_fast16_t uint9;
 typedef uint_fast16_t uint10;
 typedef uint_fast16_t uint11;
 typedef uint_fast16_t uint12;
+typedef uint_fast32_t uint19;
+typedef uint_fast32_t uint23;
 
 typedef int_fast16_t int12;
 
@@ -64,7 +66,8 @@ typedef struct _esfm_slot_internal
 	int12 feedback_buf;
 	int12 *mod_input;
 	
-	uint10 phase_acc;
+	uint19 phase_acc;
+	uint10 phase_out;
 	bool phase_reset;
 	bool *key_on;
 
@@ -142,6 +145,15 @@ struct _esfm_chip
 	bool eg_tick;
 	uint8 tremolo;
 	uint8 tremolo_pos;
+	uint8 vibrato_pos;
+	uint23 lfsr;
+	
+	bool rm_hh_bit2;
+	bool rm_hh_bit3;
+	bool rm_hh_bit7;
+	bool rm_hh_bit8;
+	bool rm_tc_bit3;
+	bool rm_tc_bit5;
 	
 	uint8 timers[2];
 	bool timer_enable[2];
