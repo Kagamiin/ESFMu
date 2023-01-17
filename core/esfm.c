@@ -134,13 +134,6 @@ static const uint8_t mt[16] = {
 	1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 20, 24, 24, 30, 30
 };
 
-/*
-	ksl table
-*/
-
-static const int_fast16_t kslrom[16] = {
-	0, 32, 40, 45, 48, 51, 53, 55, 56, 58, 59, 60, 61, 62, 63, 64
-};
 
 static const uint8_t kslshift[4] = {
 	8, 1, 2, 0
@@ -157,21 +150,15 @@ static const uint8_t eg_incstep[4][4] = {
 	{ 1, 1, 1, 0 }
 };
 
-enum eg_states
-{
-	EG_ATTACK,
-	EG_DECAY,
-	EG_SUSTAIN,
-	EG_RELEASE
-};
-
 /*
 	Envelope generator
 */
 
-typedef int_fast16_t(*envelope_sinfunc)(uint_fast16_t phase, uint_fast16_t envelope);
+typedef int12(*envelope_sinfunc)(uint10 phase, uint10 envelope);
 
-static int_fast16_t ESFM_envelope_calc_exp(uint_fast16_t level)
+/* ------------------------------------------------------------------------- */
+static int12
+ESFM_envelope_calc_exp(uint16 level)
 {
 	if (level > 0x1fff)
 	{
@@ -180,10 +167,12 @@ static int_fast16_t ESFM_envelope_calc_exp(uint_fast16_t level)
 	return (exprom[level & 0xff] << 1) >> (level >> 8);
 }
 
-static int_fast16_t ESFM_envelope_calc_sin0(uint_fast16_t phase, uint_fast16_t envelope)
+/* ------------------------------------------------------------------------- */
+static int12
+ESFM_envelope_calc_sin0(uint10 phase, uint10 envelope)
 {
-	uint_fast16_t out = 0;
-	uint_fast16_t neg = 0;
+	uint16 out = 0;
+	uint16 neg = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
@@ -200,9 +189,11 @@ static int_fast16_t ESFM_envelope_calc_sin0(uint_fast16_t phase, uint_fast16_t e
 	return ESFM_envelope_calc_exp(out + (envelope << 3)) ^ neg;
 }
 
-static int_fast16_t ESFM_envelope_calc_sin1(uint_fast16_t phase, uint_fast16_t envelope)
+/* ------------------------------------------------------------------------- */
+static int12
+ESFM_envelope_calc_sin1(uint10 phase, uint10 envelope)
 {
-	uint_fast16_t out = 0;
+	uint16 out = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
@@ -219,9 +210,11 @@ static int_fast16_t ESFM_envelope_calc_sin1(uint_fast16_t phase, uint_fast16_t e
 	return ESFM_envelope_calc_exp(out + (envelope << 3));
 }
 
-static int_fast16_t ESFM_envelope_calc_sin2(uint_fast16_t phase, uint_fast16_t envelope)
+/* ------------------------------------------------------------------------- */
+static int12
+ESFM_envelope_calc_sin2(uint10 phase, uint10 envelope)
 {
-	uint_fast16_t out = 0;
+	uint16 out = 0;
 	phase &= 0x3ff;
 	if (phase & 0x100)
 	{
@@ -234,9 +227,11 @@ static int_fast16_t ESFM_envelope_calc_sin2(uint_fast16_t phase, uint_fast16_t e
 	return ESFM_envelope_calc_exp(out + (envelope << 3));
 }
 
-static int_fast16_t ESFM_envelope_calc_sin3(uint_fast16_t phase, uint_fast16_t envelope)
+/* ------------------------------------------------------------------------- */
+static int12
+ESFM_envelope_calc_sin3(uint10 phase, uint10 envelope)
 {
-	uint_fast16_t out = 0;
+	uint16 out = 0;
 	phase &= 0x3ff;
 	if (phase & 0x100)
 	{
@@ -249,10 +244,12 @@ static int_fast16_t ESFM_envelope_calc_sin3(uint_fast16_t phase, uint_fast16_t e
 	return ESFM_envelope_calc_exp(out + (envelope << 3));
 }
 
-static int_fast16_t ESFM_envelope_calc_sin4(uint_fast16_t phase, uint_fast16_t envelope)
+/* ------------------------------------------------------------------------- */
+static int12
+ESFM_envelope_calc_sin4(uint10 phase, uint10 envelope)
 {
-	uint_fast16_t out = 0;
-	uint_fast16_t neg = 0;
+	uint16 out = 0;
+	uint16 neg = 0;
 	phase &= 0x3ff;
 	if ((phase & 0x300) == 0x100)
 	{
@@ -273,9 +270,11 @@ static int_fast16_t ESFM_envelope_calc_sin4(uint_fast16_t phase, uint_fast16_t e
 	return ESFM_envelope_calc_exp(out + (envelope << 3)) ^ neg;
 }
 
-static int_fast16_t ESFM_envelope_calc_sin5(uint_fast16_t phase, uint_fast16_t envelope)
+/* ------------------------------------------------------------------------- */
+static int12
+ESFM_envelope_calc_sin5(uint10 phase, uint10 envelope)
 {
-	uint_fast16_t out = 0;
+	uint16 out = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
@@ -292,9 +291,11 @@ static int_fast16_t ESFM_envelope_calc_sin5(uint_fast16_t phase, uint_fast16_t e
 	return ESFM_envelope_calc_exp(out + (envelope << 3));
 }
 
-static int_fast16_t ESFM_envelope_calc_sin6(uint_fast16_t phase, uint_fast16_t envelope)
+/* ------------------------------------------------------------------------- */
+static int12
+ESFM_envelope_calc_sin6(uint10 phase, uint10 envelope)
 {
-	uint_fast16_t neg = 0;
+	uint16 neg = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
@@ -303,10 +304,12 @@ static int_fast16_t ESFM_envelope_calc_sin6(uint_fast16_t phase, uint_fast16_t e
 	return ESFM_envelope_calc_exp(envelope << 3) ^ neg;
 }
 
-static int_fast16_t ESFM_envelope_calc_sin7(uint_fast16_t phase, uint_fast16_t envelope)
+/* ------------------------------------------------------------------------- */
+static int12
+ESFM_envelope_calc_sin7(uint10 phase, uint10 envelope)
 {
-	uint_fast16_t out = 0;
-	uint_fast16_t neg = 0;
+	uint16 out = 0;
+	uint16 neg = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
@@ -317,6 +320,7 @@ static int_fast16_t ESFM_envelope_calc_sin7(uint_fast16_t phase, uint_fast16_t e
 	return ESFM_envelope_calc_exp(out + (envelope << 3)) ^ neg;
 }
 
+/* ------------------------------------------------------------------------- */
 static const envelope_sinfunc envelope_sin[8] =
 {
 	ESFM_envelope_calc_sin0,
@@ -329,18 +333,7 @@ static const envelope_sinfunc envelope_sin[8] =
 	ESFM_envelope_calc_sin7
 };
 
-static void
-ESFM_envelope_update_ksl(esfm_slot *slot)
-{
-	uint9 ksl = (kslrom[slot->f_num >> 6] << 2)
-	- ((0x08 - slot->block) << 5);
-	if (ksl < 0)
-	{
-		ksl = 0;
-	}
-	slot->internal.eg_ksl_offset = ksl;
-}
-
+/* ------------------------------------------------------------------------- */
 static void
 ESFM_envelope_calc(esfm_slot *slot)
 {
@@ -353,42 +346,42 @@ ESFM_envelope_calc(esfm_slot *slot)
 	uint8 eg_shift, shift;
 	bool eg_off;
 	uint9 eg_rout;
-	int_fast16_t eg_inc;
+	int16 eg_inc;
 	bool reset = 0;
-	slot->internal.eg_output = slot->internal.eg_position + (slot->t_level << 2)
-		+ (slot->internal.eg_ksl_offset >> kslshift[slot->ksl]);
+	slot->in.eg_output = slot->in.eg_position + (slot->t_level << 2)
+		+ (slot->in.eg_ksl_offset >> kslshift[slot->ksl]);
 	if (slot->tremolo_en)
 	{
 		uint8 tremolo;
 		tremolo = slot->channel->chip->tremolo >> ((!slot->tremolo_deep << 1) + 2);
-		slot->internal.eg_output += tremolo;
+		slot->in.eg_output += tremolo;
 	}
-	if (*slot->internal.key_on && slot->internal.eg_state == EG_RELEASE)
+	if (*slot->in.key_on && slot->in.eg_state == EG_RELEASE)
 	{
-		if (!slot->internal.eg_delay_run)
+		if (!slot->in.eg_delay_run)
 		{
-			slot->internal.eg_delay_run = 1;
-			slot->internal.eg_delay_counter = slot->env_delay ? 0x100 : 0;
+			slot->in.eg_delay_run = 1;
+			slot->in.eg_delay_counter = slot->env_delay ? 0x100 : 0;
 		}
 		
-		if (slot->internal.eg_delay_counter == 0)
+		if (slot->in.eg_delay_counter == 0)
 		{
-			slot->internal.eg_delay_run = 0;
+			slot->in.eg_delay_run = 0;
 			reset = 1;
 			reg_rate = slot->attack_rate;
 		}
 		else
 		{
-			if (slot->chip->eg_timer & (1 << slot->env_delay))
+			if (slot->chip->global_timer & (1 << slot->env_delay))
 			{
-				slot->internal.eg_delay_counter--;
+				slot->in.eg_delay_counter--;
 			}
 			reg_rate = slot->release_rate;
 		}
 	}
 	else
 	{
-		switch (slot->internal.eg_state)
+		switch (slot->in.eg_state)
 		{
 			case EG_ATTACK:
 				reg_rate = slot->attack_rate;
@@ -407,8 +400,8 @@ ESFM_envelope_calc(esfm_slot *slot)
 				break;
 		}
 	}
-	slot->internal.phase_reset = reset;
-	ks = slot->internal.keyscale >> (!slot->ksr << 1);
+	slot->in.phase_reset = reset;
+	ks = slot->in.keyscale >> (!slot->ksr << 1);
 	nonzero = (reg_rate != 0);
 	rate = ks + (reg_rate << 2);
 	rate_hi = rate >> 2;
@@ -455,7 +448,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 			}
 		}
 	}
-	eg_rout = slot->internal.eg_position;
+	eg_rout = slot->in.eg_position;
 	eg_inc = 0;
 	eg_off = 0;
 	/* Instant attack */
@@ -464,30 +457,30 @@ ESFM_envelope_calc(esfm_slot *slot)
 		eg_rout = 0x00;
 	}
 	/* Envelope off */
-	if ((slot->internal.eg_position & 0x1f8) == 0x1f8)
+	if ((slot->in.eg_position & 0x1f8) == 0x1f8)
 	{
 		eg_off = 1;
 	}
-	if (slot->internal.eg_state != EG_ATTACK && !reset && eg_off)
+	if (slot->in.eg_state != EG_ATTACK && !reset && eg_off)
 	{
 		eg_rout = 0x1ff;
 	}
-	switch (slot->internal.eg_state)
+	switch (slot->in.eg_state)
 	{
 		case EG_ATTACK:
-			if (slot->internal.eg_position == 0)
+			if (slot->in.eg_position == 0)
 			{
-				slot->internal.eg_state = EG_DECAY;
+				slot->in.eg_state = EG_DECAY;
 			}
-			else if (*slot->internal.key_on && shift > 0 && rate_hi != 0x0f)
+			else if (*slot->in.key_on && shift > 0 && rate_hi != 0x0f)
 			{
-				eg_inc = ~slot->internal.eg_position >> (4 - shift);
+				eg_inc = ~slot->in.eg_position >> (4 - shift);
 			}
 			break;
 		case EG_DECAY:
-			if ((slot->internal.eg_position >> 4) == slot->sustain_lvl)
+			if ((slot->in.eg_position >> 4) == slot->sustain_lvl)
 			{
-				slot->internal.eg_state = EG_SUSTAIN;
+				slot->in.eg_state = EG_SUSTAIN;
 			}
 			else if (!eg_off && !reset && shift > 0)
 			{
@@ -502,19 +495,22 @@ ESFM_envelope_calc(esfm_slot *slot)
 			}
 			break;
 	}
-	slot->internal.eg_position = (eg_rout + eg_inc) & 0x1ff;
+	slot->in.eg_position = (eg_rout + eg_inc) & 0x1ff;
 	/* Key off */
 	if (reset)
 	{
-		slot->internal.eg_state = EG_ATTACK;
+		slot->in.eg_state = EG_ATTACK;
 	}
-	if (!*slot->internal.key_on)
+	if (!*slot->in.key_on)
 	{
-		slot->internal.eg_state = EG_RELEASE;
+		slot->in.eg_state = EG_RELEASE;
+		slot->in.eg_delay_run = 0;
 	}
 }
 
-static void ESFM_phase_generate(esfm_slot *slot)
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_phase_generate(esfm_slot *slot)
 {
 	esfm_chip *chip;
 	uint10 f_num;
@@ -550,16 +546,16 @@ static void ESFM_phase_generate(esfm_slot *slot)
 		f_num += range;
 	}
 	basefreq = (f_num << slot->block) >> 1;
-	phase = (uint16_t)(slot->internal.phase_acc >> 9);
-	if (slot->internal.phase_reset)
+	phase = (uint10)(slot->in.phase_acc >> 9);
+	if (slot->in.phase_reset)
 	{
-		slot->internal.phase_acc = 0;
+		slot->in.phase_acc = 0;
 	}
-	slot->internal.phase_acc += (basefreq * mt[slot->mult]) >> 1;
-	slot->internal.phase_acc &= (1 << 19) - 1;
-	/* Rhythm mode */
+	slot->in.phase_acc += (basefreq * mt[slot->mult]) >> 1;
+	slot->in.phase_acc &= (1 << 19) - 1;
+	slot->in.phase_out = phase;
+	/* Noise mode (rhythm) sounds */
 	noise = chip->lfsr;
-	slot->internal.phase_out = phase;
 	if (slot->slot_idx == 3 && slot->rhy_noise)
 	{
 		esfm_slot *prev_slot = &slot->channel->slots[2];
@@ -569,8 +565,8 @@ static void ESFM_phase_generate(esfm_slot *slot)
 		chip->rm_hh_bit7 = (phase >> 7) & 1;
 		chip->rm_hh_bit8 = (phase >> 8) & 1;
 		
-		chip->rm_tc_bit3 = (prev_slot->internal.phase_out >> 3) & 1;
-		chip->rm_tc_bit5 = (prev_slot->internal.phase_out >> 5) & 1;
+		chip->rm_tc_bit3 = (prev_slot->in.phase_out >> 3) & 1;
+		chip->rm_tc_bit5 = (prev_slot->in.phase_out >> 5) & 1;
 		
 		rm_xor = (chip->rm_hh_bit2 ^ chip->rm_hh_bit7)
 		       | (chip->rm_hh_bit3 ^ chip->rm_tc_bit5)
@@ -580,23 +576,24 @@ static void ESFM_phase_generate(esfm_slot *slot)
 		{
 			case 1:
 				// SD
-				slot->internal.phase_out = (chip->rm_hh_bit8 << 9)
+				slot->in.phase_out = (chip->rm_hh_bit8 << 9)
 					| ((chip->rm_hh_bit8 ^ (noise & 1)) << 8);
 				break;
 			case 2:
 				// HH
-				slot->internal.phase_out = rm_xor << 9;
+				slot->in.phase_out = rm_xor << 9;
 				if (rm_xor ^ (noise & 1))
 				{
-					slot->internal.phase_out |= 0xd0;
+					slot->in.phase_out |= 0xd0;
 				}
 				else
 				{
-					slot->internal.phase_out |= 0x34;
+					slot->in.phase_out |= 0x34;
 				}
 				break;
 			case 3:
-				slot->internal.phase_out = (rm_xor << 9) | 0x80;
+				// TC
+				slot->in.phase_out = (rm_xor << 9) | 0x80;
 				break;
 		}
 	}
@@ -605,46 +602,153 @@ static void ESFM_phase_generate(esfm_slot *slot)
 	chip->lfsr = (noise >> 1) | (n_bit << 22);
 }
 
-void ESFM_init (esfm_chip *chip)
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_slot_generate(esfm_slot *slot)
 {
-	esfm_slot *slot;
-	esfm_channel *channel;
-	size_t channel_idx, slot_idx;
+	envelope_sinfunc wavegen = envelope_sin[slot->waveform];
+	int16 phase = slot->in.phase_out;
+	if (slot->mod_in_level)
+	{
+		phase += *slot->in.mod_input >> (7 - slot->mod_in_level);
+	}
+	slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
+	if (slot->output_level)
+	{
+		int12 output_value = slot->in.output >> (7 - slot->output_level);
+		slot->channel->output[0] += output_value & slot->out_enable[0];
+		slot->channel->output[1] += output_value & slot->out_enable[1];
+	}
+}
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_slot_calc_feedback(esfm_slot *slot)
+{
+	slot->in.feedback_buf = (slot->in.output + slot->in.prev_output) >> 2;
+	slot->in.prev_output = slot->in.output;
+}
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_process_channel(esfm_channel *channel)
+{
+	int slot_idx;
+	channel->output[0] = channel->output[1] = 0;
+	ESFM_slot_calc_feedback(&channel->slots[0]);
+	for (slot_idx = 0; slot_idx < 4; slot_idx++)
+	{
+		esfm_slot *slot = &channel->slots[slot_idx];
+		ESFM_envelope_calc(slot);
+		ESFM_phase_generate(slot);
+		ESFM_slot_generate(slot);
+	}
+}
+
+/* ------------------------------------------------------------------------- */
+static int16_t
+ESFM_clip_sample(int32 sample)
+{
+	if (sample > 32767)
+	{
+		sample = 32767;
+	}
+	else if (sample < -32768)
+	{
+		sample = -32768;
+	}
+	return (int16_t)sample;
+}
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_update_timers(esfm_chip *chip)
+{
+	// Tremolo
+	if ((chip->global_timer & 0x3f) == 0x3f)
+	{
+		chip->tremolo_pos = (chip->tremolo_pos + 1) % 210;
+		if (chip->tremolo_pos < 105)
+		{
+			chip->tremolo = chip->tremolo_pos;
+		}
+		else
+		{
+			chip->tremolo = (210 - chip->tremolo_pos);
+		}
+	}
 	
-	memset(chip, 0, sizeof(esfm_chip));
+	// Vibrato
+	if ((chip->global_timer & 0x3ff) == 0x3ff)
+	{
+		chip->vibrato_pos = (chip->vibrato_pos + 1) & 0x07;
+	}
+	
+	chip->global_timer = (chip->global_timer + 1) & 0x3ff;
+	
+	// Envelope generator dither clocks
+	chip->eg_clocks = 0;
+	if (chip->eg_timer)
+	{
+		uint8 shift = 0;
+		while (shift < 36 && ((chip->eg_timer >> shift) & 1) == 0)
+		{
+			shift++;
+		}
+		
+		if (shift <= 12)
+		{
+			chip->eg_clocks = shift + 1;
+		}
+	}
+	
+	if (chip->eg_tick || chip->eg_timer_overflow)
+	{
+		if (chip->eg_timer == (1llu << 36) - 1)
+		{
+			chip->eg_timer = 0;
+			chip->eg_timer_overflow = 1;
+		}
+		else
+		{
+			chip->eg_timer++;
+			chip->eg_timer_overflow = 0;
+		}
+	}
+	
+	chip -> eg_tick ^= 1;
+}
+
+/* ------------------------------------------------------------------------- */
+void
+ESFM_generate(esfm_chip *chip, int16_t *buf)
+{
+	int channel_idx;
+	
+	chip->output_accm[0] = chip->output_accm[1] = 0;
 	for (channel_idx = 0; channel_idx < 18; channel_idx++)
 	{
-		for (slot_idx = 0; slot_idx < 4; slot_idx++)
-		{
-			channel = &chip->channels[channel_idx];
-			slot = &channel->slots[slot_idx];
-			
-			channel->chip = chip;
-			slot->channel = channel;
-			slot->chip = chip;
-			slot->slot_idx = slot_idx;
-			slot->internal.eg_position = slot->internal.eg_output = 0x1ff;
-			slot->internal.eg_state = EG_RELEASE;
-			if (slot_idx == 0)
-			{
-				slot->internal.mod_input = &slot->internal.feedback_buf;
-			}
-			else
-			{
-				esfm_slot *prev_slot = &channel->slots[slot_idx - 1];
-				slot->internal.mod_input = &prev_slot->internal.output;
-			}
-			
-			if (channel_idx & 0x10 && slot_idx & 0x02)
-			{
-				slot->internal.key_on = &channel->key_on_2;
-			}
-			else
-			{
-				slot->internal.key_on = &channel->key_on;
-			}
-			
-			slot->out_enable[0] = slot->out_enable[1] = ~((int12) 0);
-		}
+		esfm_channel *channel = &chip->channels[channel_idx];
+		ESFM_process_channel(channel);
+		chip->output_accm[0] += channel->output[0];
+		chip->output_accm[1] += channel->output[1];
+	}
+	
+	buf[0] = ESFM_clip_sample(chip->output_accm[0]);
+	buf[1] = ESFM_clip_sample(chip->output_accm[1]);
+	
+	ESFM_update_timers(chip);
+}
+
+/* ------------------------------------------------------------------------- */
+void
+ESFM_generate_stream(esfm_chip *chip, int16_t *sndptr, uint32_t num_samples)
+{
+	uint32_t i;
+	
+	for (i = 0; i < num_samples; i++)
+	{
+		ESFM_generate(chip, sndptr);
+		sndptr += 2;
 	}
 }

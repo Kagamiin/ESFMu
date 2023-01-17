@@ -32,6 +32,27 @@
 #include <stddef.h>
 #include <string.h>
 
+
+/*
+	ksl table
+*/
+
+static const int16 kslrom[16] = {
+	0, 32, 40, 45, 48, 51, 53, 55, 56, 58, 59, 60, 61, 62, 63, 64
+};
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_envelope_update_ksl(esfm_slot *slot)
+{
+	uint9 ksl = (kslrom[slot->f_num >> 6] << 2) - ((0x08 - slot->block) << 5);
+	if (ksl < 0)
+	{
+		ksl = 0;
+	}
+	slot->in.eg_ksl_offset = ksl;
+}
+
 /* ------------------------------------------------------------------------- */
 static inline uint8_t
 ESFM_slot_readback (esfm_slot *slot, uint8_t register_idx)
@@ -49,6 +70,7 @@ ESFM_slot_readback (esfm_slot *slot, uint8_t register_idx)
 		case 0x01:
 			data |= slot->ksl << 6;
 			data |= slot->t_level & 0x3f;
+			ESFM_envelope_update_ksl(slot);
 			break;
 		case 0x02:
 			data |= slot->attack_rate << 4;
@@ -429,3 +451,52 @@ ESFM_read_port (esfm_chip *chip, uint8_t offset)
 	}
 	return data;
 }
+
+/* ------------------------------------------------------------------------- */
+void
+ESFM_init (esfm_chip *chip)
+{
+	esfm_slot *slot;
+	esfm_channel *channel;
+	size_t channel_idx, slot_idx;
+	
+	memset(chip, 0, sizeof(esfm_chip));
+	for (channel_idx = 0; channel_idx < 18; channel_idx++)
+	{
+		for (slot_idx = 0; slot_idx < 4; slot_idx++)
+		{
+			channel = &chip->channels[channel_idx];
+			slot = &channel->slots[slot_idx];
+			
+			channel->chip = chip;
+			slot->channel = channel;
+			slot->chip = chip;
+			slot->slot_idx = slot_idx;
+			slot->in.eg_position = slot->in.eg_output = 0x1ff;
+			slot->in.eg_state = EG_RELEASE;
+			if (slot_idx == 0)
+			{
+				slot->in.mod_input = &slot->in.feedback_buf;
+			}
+			else
+			{
+				esfm_slot *prev_slot = &channel->slots[slot_idx - 1];
+				slot->in.mod_input = &prev_slot->in.output;
+			}
+			
+			if (channel_idx > 15 && slot_idx & 0x02)
+			{
+				slot->in.key_on = &channel->key_on_2;
+			}
+			else
+			{
+				slot->in.key_on = &channel->key_on;
+			}
+			
+			slot->out_enable[0] = slot->out_enable[1] = ~((int12) 0);
+		}
+	}
+	
+	chip->lfsr = 1;
+}
+

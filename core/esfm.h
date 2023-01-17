@@ -12,15 +12,19 @@ void ESFM_write_reg (esfm_chip *chip, int16_t address, uint8_t data);
 void ESFM_write_port (esfm_chip *chip, uint8_t offset, uint8_t data);
 uint8_t ESFM_readback_reg (esfm_chip *chip, int16_t address);
 uint8_t ESFM_read_port (esfm_chip *chip, uint8_t offset);
+void ESFM_generate(esfm_chip *chip, int16_t *buf);
+void ESFM_generate_stream(esfm_chip *chip, int16_t *sndptr, uint32_t num_samples);
 
 
 // These are fake types just for syntax sugar.
 // Beware of their underlying types when reading/writing to them.
-#ifndef __FAST_TYPES
-#define __FAST_TYPES
+#ifndef __NO_ESFM_FAST_TYPES
+#ifndef __ESFM_FAST_TYPES
+#define __ESFM_FAST_TYPES
+#endif
 #endif
 
-#ifdef __FAST_TYPES
+#ifdef __ESFM_FAST_TYPES
 typedef uint_fast8_t bool;
 typedef uint_fast8_t uint2;
 typedef uint_fast8_t uint3;
@@ -31,10 +35,15 @@ typedef uint_fast16_t uint9;
 typedef uint_fast16_t uint10;
 typedef uint_fast16_t uint11;
 typedef uint_fast16_t uint12;
+typedef uint_fast16_t uint16;
 typedef uint_fast32_t uint19;
 typedef uint_fast32_t uint23;
+typedef uint_fast32_t uint32;
+typedef uint_fast64_t uint36;
 
 typedef int_fast16_t int12;
+typedef int_fast16_t int16;
+typedef int_fast32_t int32;
 
 #else
 typedef uint8_t bool;
@@ -47,11 +56,24 @@ typedef uint16_t uint9;
 typedef uint16_t uint10;
 typedef uint16_t uint11;
 typedef uint16_t uint12;
+typedef uint16_t uint16;
+typedef uint32_t uint19;
+typedef uint32_t uint23;
+typedef uint32_t uint32;
 
 typedef int16_t int12;
+typedef int16_t int16;
+typedef int32_t int32;
 
 #endif
 
+enum eg_states
+{
+	EG_ATTACK,
+	EG_DECAY,
+	EG_SUSTAIN,
+	EG_RELEASE
+};
 
 typedef struct _esfm_slot_internal
 {
@@ -112,14 +134,14 @@ struct _esfm_slot
 	uint3 env_delay;
 	
 	// Internal state
-	esfm_slot_internal internal;
+	esfm_slot_internal in;
 };
 
 struct _esfm_channel
 {
 	esfm_chip *chip;
 	esfm_slot slots[4];
-	int16_t output[2];
+	int16 output[2];
 	bool key_on;
 	bool emu_mode_4op_enable;
 	// Only for channels 17 and 18
@@ -130,7 +152,7 @@ struct _esfm_channel
 struct _esfm_chip
 {
 	esfm_channel channels[18];
-	int32_t output_accm[2];
+	int32 output_accm[2];
 	uint_fast16_t addr_latch;
 	
 	bool emu_newmode;
@@ -139,10 +161,11 @@ struct _esfm_chip
 	bool keyscale_mode;
 	
 	// Global state
-	uint64_t eg_timer;
+	uint36 eg_timer;
 	uint10 global_timer;
 	uint8 eg_clocks;
 	bool eg_tick;
+	bool eg_timer_overflow;
 	uint8 tremolo;
 	uint8 tremolo_pos;
 	uint8 vibrato_pos;
