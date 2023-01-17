@@ -45,7 +45,7 @@ static const int16 kslrom[16] = {
 static void
 ESFM_envelope_update_ksl(esfm_slot *slot)
 {
-	uint9 ksl = (kslrom[slot->f_num >> 6] << 2) - ((0x08 - slot->block) << 5);
+	int16 ksl = (kslrom[slot->f_num >> 6] << 2) - ((0x08 - slot->block) << 5);
 	if (ksl < 0)
 	{
 		ksl = 0;
