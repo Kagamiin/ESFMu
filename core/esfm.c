@@ -358,13 +358,13 @@ ESFM_envelope_calc(esfm_slot *slot)
 	}
 	if (*slot->in.key_on && slot->in.eg_state == EG_RELEASE)
 	{
-		if (!slot->in.eg_delay_run)
+		if (!slot->in.eg_delay_run && slot->chip->native_mode)
 		{
 			slot->in.eg_delay_run = 1;
 			slot->in.eg_delay_counter = slot->env_delay ? 0x100 : 0;
 		}
 		
-		if (slot->in.eg_delay_counter == 0)
+		if (slot->in.eg_delay_counter == 0 || !slot->chip->native_mode)
 		{
 			slot->in.eg_delay_run = 0;
 			reset = 1;
@@ -514,7 +514,7 @@ ESFM_phase_generate(esfm_slot *slot)
 {
 	esfm_chip *chip;
 	uint10 f_num;
-	uint_fast32_t basefreq;
+	uint32 basefreq;
 	bool rm_xor, n_bit;
 	uint23 noise;
 	uint10 phase;
@@ -527,7 +527,7 @@ ESFM_phase_generate(esfm_slot *slot)
 		uint8_t vibpos;
 
 		range = (f_num >> 7) & 7;
-		vibpos = slot->chip->vibrato_pos;
+		vibpos = chip->vibrato_pos;
 
 		if (!(vibpos & 3))
 		{
@@ -604,6 +604,106 @@ ESFM_phase_generate(esfm_slot *slot)
 
 /* ------------------------------------------------------------------------- */
 static void
+ESFM_phase_generate_emu(esfm_slot *slot)
+{
+	esfm_chip *chip;
+	uint10 f_num;
+	uint32 basefreq;
+	bool rm_xor, n_bit;
+	uint23 noise;
+	uint10 phase;
+
+	chip = slot->chip;
+	f_num = slot->channel->slots[0].f_num;
+	if (slot->vibrato_en)
+	{
+		int8_t range;
+		uint8_t vibpos;
+
+		range = (f_num >> 7) & 7;
+		vibpos = chip->vibrato_pos;
+
+		if (!(vibpos & 3))
+		{
+			range = 0;
+		}
+		else if (vibpos & 1)
+		{
+			range >>= 1;
+		}
+		range >>= !chip->emu_vibrato_deep;
+
+		if (vibpos & 4)
+		{
+			range = -range;
+		}
+		f_num += range;
+	}
+	basefreq = (f_num << slot->channel->slots[0].block) >> 1;
+	phase = (uint10)(slot->in.phase_acc >> 9);
+	if (slot->in.phase_reset)
+	{
+		slot->in.phase_acc = 0;
+	}
+	slot->in.phase_acc += (basefreq * mt[slot->mult]) >> 1;
+	slot->in.phase_acc &= (1 << 19) - 1;
+	slot->in.phase_out = phase;
+	
+	/* Noise mode (rhythm) sounds */
+	noise = chip->lfsr;
+	// HH
+	if (slot->channel->channel_idx == 7 && slot->slot_idx == 0)
+	{
+		chip->rm_hh_bit2 = (phase >> 2) & 1;
+		chip->rm_hh_bit3 = (phase >> 3) & 1;
+		chip->rm_hh_bit7 = (phase >> 7) & 1;
+		chip->rm_hh_bit8 = (phase >> 8) & 1;
+	}
+	// TC
+	if (slot->channel->channel_idx == 8 && slot->slot_idx == 1)
+	{
+		chip->rm_tc_bit3 = (phase >> 3) & 1;
+		chip->rm_tc_bit5 = (phase >> 5) & 1;
+	}
+	if (chip->emu_rhy_mode_flags & 0x20)
+	{
+		rm_xor = (chip->rm_hh_bit2 ^ chip->rm_hh_bit7)
+		       | (chip->rm_hh_bit3 ^ chip->rm_tc_bit5)
+		       | (chip->rm_tc_bit3 ^ chip->rm_tc_bit5);
+		if (slot->channel->channel_idx == 7)
+		{
+			if (slot->slot_idx == 0) {
+				// HH
+				slot->in.phase_out = rm_xor << 9;
+				if (rm_xor ^ (noise & 1))
+				{
+					slot->in.phase_out |= 0xd0;
+				}
+				else
+				{
+					slot->in.phase_out |= 0x34;
+				}
+			}
+			else if (slot->slot_idx == 1)
+			{
+				// SD
+				slot->in.phase_out = (chip->rm_hh_bit8 << 9)
+					| ((chip->rm_hh_bit8 ^ (noise & 1)) << 8);
+			}
+		}
+		else if (slot->channel->channel_idx == 8 && slot->slot_idx == 1)
+		{
+			// TC
+			slot->in.phase_out = (rm_xor << 9) | 0x80;
+		}
+	}
+
+	n_bit = ((noise >> 14) ^ noise) & 0x01;
+	chip->lfsr = (noise >> 1) | (n_bit << 22);
+}
+
+/* ------------------------------------------------------------------------- */
+static void
 ESFM_slot_generate(esfm_slot *slot)
 {
 	envelope_sinfunc wavegen = envelope_sin[slot->waveform];
@@ -623,9 +723,29 @@ ESFM_slot_generate(esfm_slot *slot)
 
 /* ------------------------------------------------------------------------- */
 static void
+ESFM_slot_generate_emu(esfm_slot *slot)
+{
+	envelope_sinfunc wavegen = envelope_sin[slot->waveform];
+	int16 phase = slot->in.phase_out;
+	phase += *slot->in.mod_input;
+	slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
+	slot->channel->output[0] += slot->in.output & slot->channel->slots[0].out_enable[0];
+	slot->channel->output[1] += slot->in.output & slot->channel->slots[0].out_enable[1];
+}
+
+/* ------------------------------------------------------------------------- */
+static void
 ESFM_slot_calc_feedback(esfm_slot *slot)
 {
 	slot->in.feedback_buf = (slot->in.output + slot->in.prev_output) >> 2;
+	slot->in.prev_output = slot->in.output;
+}
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_slot_calc_feedback_emu(esfm_slot *slot)
+{
+	slot->in.feedback_buf = (slot->in.output + slot->in.prev_output) >> (2 + 7 - slot->mod_in_level);
 	slot->in.prev_output = slot->in.output;
 }
 
@@ -646,9 +766,27 @@ ESFM_process_channel(esfm_channel *channel)
 }
 
 /* ------------------------------------------------------------------------- */
+static void
+ESFM_process_channel_emu(esfm_channel *channel)
+{
+	int slot_idx;
+	channel->output[0] = channel->output[1] = 0;
+	ESFM_slot_calc_feedback_emu(&channel->slots[0]);
+	for (slot_idx = 0; slot_idx < 2; slot_idx++)
+	{
+		esfm_slot *slot = &channel->slots[slot_idx];
+		ESFM_envelope_calc(slot);
+		ESFM_phase_generate_emu(slot);
+		ESFM_slot_generate_emu(slot);
+	}
+}
+
+/* ------------------------------------------------------------------------- */
 static int16_t
 ESFM_clip_sample(int32 sample)
 {
+	// TODO: Supposedly, the real ESFM chip actually overflows rather than
+	// clipping. Verify that.
 	if (sample > 32767)
 	{
 		sample = 32767;
@@ -729,7 +867,15 @@ ESFM_generate(esfm_chip *chip, int16_t *buf)
 	for (channel_idx = 0; channel_idx < 18; channel_idx++)
 	{
 		esfm_channel *channel = &chip->channels[channel_idx];
-		ESFM_process_channel(channel);
+		if (chip->native_mode)
+		{
+			ESFM_process_channel(channel);
+		}
+		else
+		{
+			ESFM_process_channel_emu(channel);
+		}
+		
 		chip->output_accm[0] += channel->output[0];
 		chip->output_accm[1] += channel->output[1];
 	}

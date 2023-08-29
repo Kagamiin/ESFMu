@@ -29,6 +29,7 @@ typedef uint_fast8_t bool;
 typedef uint_fast8_t uint2;
 typedef uint_fast8_t uint3;
 typedef uint_fast8_t uint4;
+typedef uint_fast8_t uint5;
 typedef uint_fast8_t uint6;
 typedef uint_fast8_t uint8;
 typedef uint_fast16_t uint9;
@@ -50,6 +51,7 @@ typedef uint8_t bool;
 typedef uint8_t uint2;
 typedef uint8_t uint3;
 typedef uint8_t uint4;
+typedef uint8_t uint5;
 typedef uint8_t uint6;
 typedef uint8_t uint8;
 typedef uint16_t uint9;
@@ -74,6 +76,12 @@ enum eg_states
 	EG_SUSTAIN,
 	EG_RELEASE
 };
+
+typedef struct _emu_slot_channel_mapping
+{
+	int channel_idx;
+	int slot_idx;
+} emu_slot_channel_mapping;
 
 typedef struct _esfm_slot_internal
 {
@@ -128,6 +136,7 @@ struct _esfm_slot
 	bool tremolo_deep;
 	bool vibrato_en;
 	bool vibrato_deep;
+	bool emu_connection_typ;
 	bool env_sustaining;
 	bool ksr;
 	uint2 ksl;
@@ -141,6 +150,7 @@ struct _esfm_channel
 {
 	esfm_chip *chip;
 	esfm_slot slots[4];
+	uint5 channel_idx;
 	int16 output[2];
 	bool key_on;
 	bool emu_mode_4op_enable;
@@ -177,6 +187,13 @@ struct _esfm_chip
 	bool rm_hh_bit8;
 	bool rm_tc_bit3;
 	bool rm_tc_bit5;
+	
+	// 0xbd register in emulation mode, exposed in 0x4bd in native mode
+	// ("bass drum" register)
+	bool emu_rhy_mode_flags;
+	
+	bool emu_vibrato_deep;
+	bool emu_tremolo_deep;
 	
 	uint8 timers[2];
 	bool timer_enable[2];
