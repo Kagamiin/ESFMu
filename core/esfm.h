@@ -1,16 +1,23 @@
- 
+
+#include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _esfm_slot esfm_slot;
 typedef struct _esfm_slot_internal esfm_slot_internal;
 typedef struct _esfm_channel esfm_channel;
 typedef struct _esfm_chip esfm_chip;
 
+
+
 void ESFM_init (esfm_chip *chip);
-void ESFM_write_reg (esfm_chip *chip, int16_t address, uint8_t data);
+void ESFM_write_reg (esfm_chip *chip, uint16_t address, uint8_t data);
+void ESFM_write_reg_buffered (esfm_chip *chip, uint16_t address, uint8_t data);
 void ESFM_write_port (esfm_chip *chip, uint8_t offset, uint8_t data);
-uint8_t ESFM_readback_reg (esfm_chip *chip, int16_t address);
+uint8_t ESFM_readback_reg (esfm_chip *chip, uint16_t address);
 uint8_t ESFM_read_port (esfm_chip *chip, uint8_t offset);
 void ESFM_generate(esfm_chip *chip, int16_t *buf);
 void ESFM_generate_stream(esfm_chip *chip, int16_t *sndptr, uint32_t num_samples);
@@ -25,7 +32,10 @@ void ESFM_generate_stream(esfm_chip *chip, int16_t *sndptr, uint32_t num_samples
 #endif
 
 #ifdef __ESFM_FAST_TYPES
+
+#ifndef __cplusplus
 typedef uint_fast8_t bool;
+#endif
 typedef uint_fast8_t uint2;
 typedef uint_fast8_t uint3;
 typedef uint_fast8_t uint4;
@@ -47,7 +57,9 @@ typedef int_fast16_t int16;
 typedef int_fast32_t int32;
 
 #else
+#ifndef __cplusplus
 typedef uint8_t bool;
+#endif
 typedef uint8_t uint2;
 typedef uint8_t uint3;
 typedef uint8_t uint4;
@@ -77,10 +89,21 @@ enum eg_states
 	EG_RELEASE
 };
 
+
+typedef struct _esfm_write_buf
+{
+	bool valid;
+	uint16_t address;
+	uint8_t data;
+	uint64_t timestamp;
+
+} esfm_write_buf;
+
 typedef struct _emu_slot_channel_mapping
 {
 	int channel_idx;
 	int slot_idx;
+
 } emu_slot_channel_mapping;
 
 typedef struct _esfm_slot_internal
@@ -88,14 +111,16 @@ typedef struct _esfm_slot_internal
 	uint9 eg_position;
 	uint9 eg_ksl_offset;
 	uint10 eg_output;
-	
+
 	uint4 keyscale;
-	
+
 	int12 output;
 	int12 prev_output;
+	int12 emu_output_enable;
+	int12 emu_mod_enable;
 	int12 feedback_buf;
 	int12 *mod_input;
-	
+
 	uint19 phase_acc;
 	uint10 phase_out;
 	bool phase_reset;
@@ -104,7 +129,7 @@ typedef struct _esfm_slot_internal
 	uint2 eg_state;
 	bool eg_delay_run;
 	uint9 eg_delay_counter;
-	
+
 } esfm_slot_internal;
 
 struct _esfm_slot
@@ -113,25 +138,25 @@ struct _esfm_slot
 	esfm_channel *channel;
 	esfm_chip *chip;
 	uint2 slot_idx;
-	
+
 	// Register data
 	int12 out_enable[2];
 	uint10 f_num;
 	uint3 block;
 	uint3 output_level;
 	uint3 mod_in_level;
-	
+
 	uint6 t_level;
 	uint4 mult;
 	uint3 waveform;
 	// Only for 4th slot
 	uint2 rhy_noise;
-	
+
 	uint4 attack_rate;
 	uint4 decay_rate;
 	uint4 sustain_lvl;
 	uint4 release_rate;
-	
+
 	bool tremolo_en;
 	bool tremolo_deep;
 	bool vibrato_en;
@@ -141,7 +166,7 @@ struct _esfm_slot
 	bool ksr;
 	uint2 ksl;
 	uint3 env_delay;
-	
+
 	// Internal state
 	esfm_slot_internal in;
 };
@@ -159,17 +184,20 @@ struct _esfm_channel
 	bool emu_mode_4op_enable_2;
 };
 
+#define ESFM_WRITEBUF_SIZE 1024
+#define ESFM_WRITEBUF_DELAY 2
+
 struct _esfm_chip
 {
 	esfm_channel channels[18];
 	int32 output_accm[2];
 	uint_fast16_t addr_latch;
-	
+
 	bool emu_newmode;
 	bool native_mode;
-	
+
 	bool keyscale_mode;
-	
+
 	// Global state
 	uint36 eg_timer;
 	uint10 global_timer;
@@ -180,28 +208,37 @@ struct _esfm_chip
 	uint8 tremolo_pos;
 	uint8 vibrato_pos;
 	uint23 lfsr;
-	
+
 	bool rm_hh_bit2;
 	bool rm_hh_bit3;
 	bool rm_hh_bit7;
 	bool rm_hh_bit8;
 	bool rm_tc_bit3;
 	bool rm_tc_bit5;
-	
+
 	// 0xbd register in emulation mode, exposed in 0x4bd in native mode
 	// ("bass drum" register)
 	bool emu_rhy_mode_flags;
-	
+
 	bool emu_vibrato_deep;
 	bool emu_tremolo_deep;
-	
+
 	uint8 timers[2];
 	bool timer_enable[2];
 	bool timer_mask[2];
 	bool timer_overflow[2];
 	bool irq_bit;
-	
+
 	bool test_bit_distort;
 	bool test_bit_attenuate;
 	bool test_bit_mute;
+
+	esfm_write_buf write_buf[ESFM_WRITEBUF_SIZE];
+	size_t write_buf_start;
+	size_t write_buf_end;
+	size_t write_buf_timestamp;
 };
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,18 +1,18 @@
 /*
  * ESFMu: emulator for the ESS "ESFM" enhanced OPL3 clone
  * Copyright (C) 2023 Kagamiin~ and contributors
- * 
+ *
  * ---------------------------------------------------------------------------
- * 
+ *
  * esfm_register.c - functions for handling register and port writes and reads
- * 
+ *
  * ---------------------------------------------------------------------------
- * 
+ *
  * This file includes code and data from the Nuked OPL3 project, copyright (C)
  * 2013-2023 Nuke.YKT. Its usage, modification and redistribution is allowed
  * under the terms of the GNU Lesser General Public License version 2.1 or
  * later.
- * 
+ *
  * ESFMu is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 2.1
@@ -70,7 +70,7 @@ ESFM_slot_update_keyscale(esfm_slot *slot)
 		ksl = 0;
 	}
 	slot->in.eg_ksl_offset = ksl;
-	slot->in.keyscale = (slot->block << 1) 
+	slot->in.keyscale = (slot->block << 1)
 		| ((slot->f_num >> (8 + !slot->chip->keyscale_mode)) & 0x01);
 }
 
@@ -187,10 +187,10 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 
 /* ------------------------------------------------------------------------- */
 static void
-ESFM_write_reg_native (esfm_chip *chip, int16_t address, uint8_t data)
+ESFM_write_reg_native (esfm_chip *chip, uint16_t address, uint8_t data)
 {
 	address = address & 0x7ff;
-	
+
 	if (address < KEY_ON_REGS_START)
 	{
 		// Slot register write
@@ -198,7 +198,7 @@ ESFM_write_reg_native (esfm_chip *chip, int16_t address, uint8_t data)
 		size_t slot_idx = (address >> 3) & 0x03;
 		size_t register_idx = address & 0x07;
 		esfm_slot *slot = &chip->channels[channel_idx].slots[slot_idx];
-		
+
 		ESFM_slot_write(slot, register_idx, data);
 	}
 	else if (address < KEY_ON_REGS_START + 16)
@@ -212,7 +212,7 @@ ESFM_write_reg_native (esfm_chip *chip, int16_t address, uint8_t data)
 	else if (address < KEY_ON_REGS_START + 20)
 	{
 		// Key-on channels 17 and 18 (each half)
-		size_t channel_idx = 16 + address & 0x01;
+		size_t channel_idx = 16 + (address & 0x01);
 		bool second_half = address & 0x03;
 		esfm_channel *channel = &chip->channels[channel_idx];
 		if (second_half)
@@ -267,11 +267,11 @@ ESFM_write_reg_native (esfm_chip *chip, int16_t address, uint8_t data)
 
 /* ------------------------------------------------------------------------- */
 static uint8_t
-ESFM_readback_reg_native (esfm_chip *chip, int16_t address)
+ESFM_readback_reg_native (esfm_chip *chip, uint16_t address)
 {
 	uint8_t data = 0;
 	address = address & 0x7ff;
-	
+
 	if (address < KEY_ON_REGS_START)
 	{
 		// Slot register read
@@ -279,7 +279,7 @@ ESFM_readback_reg_native (esfm_chip *chip, int16_t address)
 		size_t slot_idx = (address >> 3) & 0x03;
 		size_t register_idx = address & 0x07;
 		esfm_slot *slot = &chip->channels[channel_idx].slots[slot_idx];
-		
+
 		data = ESFM_slot_readback(slot, register_idx);
 	}
 	else if (address < KEY_ON_REGS_START + 16)
@@ -287,14 +287,14 @@ ESFM_readback_reg_native (esfm_chip *chip, int16_t address)
 		// Key-on registers
 		size_t channel_idx = (address - KEY_ON_REGS_START);
 		esfm_channel *channel = &chip->channels[channel_idx];
-		
+
 		data |= channel->key_on != 0;
 		data |= (channel->emu_mode_4op_enable != 0) << 1;
 	}
 	else if (address < KEY_ON_REGS_START + 20)
 	{
 		// Key-on channels 17 and 18 (each half)
-		size_t channel_idx = 16 + address & 0x03;
+		size_t channel_idx = 16 + (address & 0x03);
 		bool second_half = address & 0x01;
 		esfm_channel *channel = &chip->channels[channel_idx];
 		if (second_half)
@@ -344,26 +344,26 @@ ESFM_readback_reg_native (esfm_chip *chip, int16_t address)
 
 /* ------------------------------------------------------------------------- */
 static void
-ESFM_write_reg_emu (esfm_chip *chip, int16_t address, uint8_t data)
+ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 {
 	bool high = (address & 0x100) != 0;
 	uint8_t reg = address & 0xff;
 	int emu_slot_idx = ad_slot[address & 0x1f];
 	int natv_chan_idx = -1;
 	int natv_slot_idx = -1;
-	int emu_chan_idx = (reg & 0x0f) > 8 ? -1 : (reg & 0x0f + high * 9);
-	
+	int emu_chan_idx = (reg & 0x0f) > 8 ? -1 : ((reg & 0x0f) + high * 9);
+
 	if (emu_slot_idx >= 0)
 	{
 		if (high)
 		{
 			emu_slot_idx += 18;
 		}
-		
+
 		natv_chan_idx = emu_slot_map[emu_slot_idx].channel_idx;
 		natv_slot_idx = emu_slot_map[emu_slot_idx].slot_idx;
 	}
-	
+
 	if (reg == 0xbd)
 	{
 		chip->emu_rhy_mode_flags = data & 0x3f;
@@ -371,7 +371,7 @@ ESFM_write_reg_emu (esfm_chip *chip, int16_t address, uint8_t data)
 		chip->emu_tremolo_deep = (data & 0x80) != 0;
 		return;
 	}
-	
+
 	switch(reg & 0xf0)
 	{
 	case 0x00:
@@ -401,6 +401,7 @@ ESFM_write_reg_emu (esfm_chip *chip, int16_t address, uint8_t data)
 			{
 			case 0x08:
 				chip->keyscale_mode = (data & 0x40) != 0;
+                break;
 			}
 		}
 	case 0x20: case 0x30:
@@ -408,26 +409,31 @@ ESFM_write_reg_emu (esfm_chip *chip, int16_t address, uint8_t data)
 		{
 			ESFM_slot_write(&chip->channels[natv_chan_idx].slots[natv_slot_idx], 0x0, data);
 		}
+		break;
 	case 0x40: case 0x50:
 		if (emu_slot_idx >= 0)
 		{
 			ESFM_slot_write(&chip->channels[natv_chan_idx].slots[natv_slot_idx], 0x1, data);
 		}
+		break;
 	case 0x60: case 0x70:
 		if (emu_slot_idx >= 0)
 		{
 			ESFM_slot_write(&chip->channels[natv_chan_idx].slots[natv_slot_idx], 0x2, data);
 		}
+		break;
 	case 0x80: case 0x90:
 		if (emu_slot_idx >= 0)
 		{
 			ESFM_slot_write(&chip->channels[natv_chan_idx].slots[natv_slot_idx], 0x3, data);
 		}
+		break;
 	case 0xa0:
 		if (emu_chan_idx >= 0)
 		{
 			ESFM_slot_write(&chip->channels[emu_chan_idx].slots[0], 0x4, data);
 		}
+		break;
 	case 0xb0:
 		if (emu_chan_idx >= 0)
 		{
@@ -435,38 +441,71 @@ ESFM_write_reg_emu (esfm_chip *chip, int16_t address, uint8_t data)
 			channel->key_on = (data & 0x20) != 0;
 			ESFM_slot_write(&channel->slots[0], 0x5, data);
 		}
+		break;
 	case 0xc0:
 		if (emu_chan_idx >= 0)
 		{
 			ESFM_slot_write(&chip->channels[emu_chan_idx].slots[0], 0x6, data);
 			// ESFM_emu_rearrange_connections(chip);
 		}
+		break;
 	case 0xe0: case 0xf0:
 		if (emu_slot_idx >= 0)
 		{
 			ESFM_slot_write(&chip->channels[natv_chan_idx].slots[natv_slot_idx], 0x7, data);
 		}
+		break;
 	}
 }
 
 
 /* ------------------------------------------------------------------------- */
 void
-ESFM_write_reg (esfm_chip *chip, int16_t address, uint8_t data)
+ESFM_write_reg (esfm_chip *chip, uint16_t address, uint8_t data)
 {
 	if (chip->native_mode)
 	{
-		return ESFM_write_reg_native(chip, address, data);
+		ESFM_write_reg_native(chip, address, data);
+		return;
 	}
 	else
 	{
-		return ESFM_write_reg_emu(chip, address, data);
+		ESFM_write_reg_emu(chip, address, data);
+		return;
 	}
 }
 
 /* ------------------------------------------------------------------------- */
+void
+ESFM_write_reg_buffered (esfm_chip *chip, uint16_t address, uint8_t data)
+{
+	size_t timestamp;
+	esfm_write_buf *new_entry, *last_entry;
+
+	new_entry = &chip->write_buf[chip->write_buf_end];
+	last_entry = &chip->write_buf[(chip->write_buf_end - 1) % ESFM_WRITEBUF_SIZE];
+
+	if (new_entry->valid) {
+		ESFM_write_reg(chip, new_entry->address, new_entry->data);
+		chip->write_buf_start = (chip->write_buf_end + 1) % ESFM_WRITEBUF_SIZE;
+	}
+
+	new_entry->valid = 1;
+	new_entry->address = address;
+	new_entry->data = data;
+	timestamp = last_entry->timestamp + ESFM_WRITEBUF_DELAY;
+	if (timestamp < chip->write_buf_timestamp)
+	{
+		timestamp = chip->write_buf_timestamp;
+	}
+
+	new_entry->timestamp = timestamp;
+	chip->write_buf_end = (chip->write_buf_end + 1) % ESFM_WRITEBUF_SIZE;
+}
+
+/* ------------------------------------------------------------------------- */
 uint8_t
-ESFM_readback_reg (esfm_chip *chip, int16_t address)
+ESFM_readback_reg (esfm_chip *chip, uint16_t address)
 {
 	if (chip->native_mode)
 	{
@@ -475,7 +514,7 @@ ESFM_readback_reg (esfm_chip *chip, int16_t address)
 	else
 	{
 		//return ESFM_readback_reg_emu(chip, address);
-		return 0;
+		return 0xff;
 	}
 }
 
@@ -570,7 +609,7 @@ ESFM_init (esfm_chip *chip)
 	esfm_slot *slot;
 	esfm_channel *channel;
 	size_t channel_idx, slot_idx;
-	
+
 	memset(chip, 0, sizeof(esfm_chip));
 	for (channel_idx = 0; channel_idx < 18; channel_idx++)
 	{
@@ -578,7 +617,7 @@ ESFM_init (esfm_chip *chip)
 		{
 			channel = &chip->channels[channel_idx];
 			slot = &channel->slots[slot_idx];
-			
+
 			channel->chip = chip;
 			channel->channel_idx = channel_idx;
 			slot->channel = channel;
@@ -586,6 +625,7 @@ ESFM_init (esfm_chip *chip)
 			slot->slot_idx = slot_idx;
 			slot->in.eg_position = slot->in.eg_output = 0x1ff;
 			slot->in.eg_state = EG_RELEASE;
+			slot->in.emu_mod_enable = ~((int12) 0);
 			if (slot_idx == 0)
 			{
 				slot->in.mod_input = &slot->in.feedback_buf;
@@ -595,7 +635,12 @@ ESFM_init (esfm_chip *chip)
 				esfm_slot *prev_slot = &channel->slots[slot_idx - 1];
 				slot->in.mod_input = &prev_slot->in.output;
 			}
-			
+
+			if (slot_idx == 1)
+			{
+				slot->in.emu_output_enable = ~((int12) 0);
+			}
+
 			if (channel_idx > 15 && slot_idx & 0x02)
 			{
 				slot->in.key_on = &channel->key_on_2;
@@ -604,11 +649,11 @@ ESFM_init (esfm_chip *chip)
 			{
 				slot->in.key_on = &channel->key_on;
 			}
-			
+
 			slot->out_enable[0] = slot->out_enable[1] = ~((int12) 0);
 		}
 	}
-	
+
 	chip->lfsr = 1;
 }
 

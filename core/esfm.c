@@ -1,12 +1,12 @@
 /*
  * ESFMu: emulator for the ESS "ESFM" enhanced OPL3 clone
  * Copyright (C) 2023 Kagamiin~ and contributors
- * 
+ *
  * This file includes code and data from the Nuked OPL3 project, copyright (C)
  * 2013-2023 Nuke.YKT. Its usage, modification and redistribution is allowed
  * under the terms of the GNU Lesser General Public License version 2.1 or
  * later.
- * 
+ *
  * ESFMu is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 2.1
@@ -172,11 +172,11 @@ static int12
 ESFM_envelope_calc_sin0(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	uint16 neg = 0;
+	int12 neg = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
-		neg = 0xffff;
+		neg = ~(0);
 	}
 	if (phase & 0x100)
 	{
@@ -249,11 +249,11 @@ static int12
 ESFM_envelope_calc_sin4(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	uint16 neg = 0;
+	int12 neg = 0;
 	phase &= 0x3ff;
 	if ((phase & 0x300) == 0x100)
 	{
-		neg = 0xffff;
+		neg = ~(0);
 	}
 	if (phase & 0x200)
 	{
@@ -295,11 +295,11 @@ ESFM_envelope_calc_sin5(uint10 phase, uint10 envelope)
 static int12
 ESFM_envelope_calc_sin6(uint10 phase, uint10 envelope)
 {
-	uint16 neg = 0;
+	int12 neg = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
-		neg = 0xffff;
+		neg = ~(0);
 	}
 	return ESFM_envelope_calc_exp(envelope << 3) ^ neg;
 }
@@ -309,11 +309,11 @@ static int12
 ESFM_envelope_calc_sin7(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	uint16 neg = 0;
+	int12 neg = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
-		neg = 0xffff;
+		neg = ~(0);
 		phase = (phase & 0x1ff) ^ 0x1ff;
 	}
 	out = phase << 3;
@@ -363,7 +363,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 			slot->in.eg_delay_run = 1;
 			slot->in.eg_delay_counter = slot->env_delay ? 0x100 : 0;
 		}
-		
+
 		if (slot->in.eg_delay_counter == 0 || !slot->chip->native_mode)
 		{
 			slot->in.eg_delay_run = 0;
@@ -401,7 +401,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 		}
 	}
 	slot->in.phase_reset = reset;
-	ks = slot->in.keyscale >> (!slot->ksr << 1);
+	ks = slot->in.keyscale >> ((!slot->ksr) << 1);
 	nonzero = (reg_rate != 0);
 	rate = ks + (reg_rate << 2);
 	rate_hi = rate >> 2;
@@ -436,7 +436,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 		}
 		else
 		{
-			shift = (rate_hi & 0x03) 
+			shift = (rate_hi & 0x03)
 				+ eg_incstep[rate_lo][slot->chip->global_timer & 0x03];
 			if (shift & 0x04)
 			{
@@ -559,19 +559,19 @@ ESFM_phase_generate(esfm_slot *slot)
 	if (slot->slot_idx == 3 && slot->rhy_noise)
 	{
 		esfm_slot *prev_slot = &slot->channel->slots[2];
-		
+
 		chip->rm_hh_bit2 = (phase >> 2) & 1;
 		chip->rm_hh_bit3 = (phase >> 3) & 1;
 		chip->rm_hh_bit7 = (phase >> 7) & 1;
 		chip->rm_hh_bit8 = (phase >> 8) & 1;
-		
+
 		chip->rm_tc_bit3 = (prev_slot->in.phase_out >> 3) & 1;
 		chip->rm_tc_bit5 = (prev_slot->in.phase_out >> 5) & 1;
-		
+
 		rm_xor = (chip->rm_hh_bit2 ^ chip->rm_hh_bit7)
 		       | (chip->rm_hh_bit3 ^ chip->rm_tc_bit5)
 		       | (chip->rm_tc_bit3 ^ chip->rm_tc_bit5);
-		
+
 		switch(slot->rhy_noise)
 		{
 			case 1:
@@ -648,7 +648,7 @@ ESFM_phase_generate_emu(esfm_slot *slot)
 	slot->in.phase_acc += (basefreq * mt[slot->mult]) >> 1;
 	slot->in.phase_acc &= (1 << 19) - 1;
 	slot->in.phase_out = phase;
-	
+
 	/* Noise mode (rhythm) sounds */
 	noise = chip->lfsr;
 	// HH
@@ -729,8 +729,8 @@ ESFM_slot_generate_emu(esfm_slot *slot)
 	int16 phase = slot->in.phase_out;
 	phase += *slot->in.mod_input;
 	slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
-	slot->channel->output[0] += slot->in.output & slot->channel->slots[0].out_enable[0];
-	slot->channel->output[1] += slot->in.output & slot->channel->slots[0].out_enable[1];
+	slot->channel->output[0] += slot->in.output & slot->channel->slots[0].out_enable[0] & slot->in.emu_output_enable;
+	slot->channel->output[1] += slot->in.output & slot->channel->slots[0].out_enable[1] & slot->in.emu_output_enable;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -815,15 +815,15 @@ ESFM_update_timers(esfm_chip *chip)
 			chip->tremolo = (210 - chip->tremolo_pos);
 		}
 	}
-	
+
 	// Vibrato
 	if ((chip->global_timer & 0x3ff) == 0x3ff)
 	{
 		chip->vibrato_pos = (chip->vibrato_pos + 1) & 0x07;
 	}
-	
+
 	chip->global_timer = (chip->global_timer + 1) & 0x3ff;
-	
+
 	// Envelope generator dither clocks
 	chip->eg_clocks = 0;
 	if (chip->eg_timer)
@@ -833,13 +833,13 @@ ESFM_update_timers(esfm_chip *chip)
 		{
 			shift++;
 		}
-		
+
 		if (shift <= 12)
 		{
 			chip->eg_clocks = shift + 1;
 		}
 	}
-	
+
 	if (chip->eg_tick || chip->eg_timer_overflow)
 	{
 		if (chip->eg_timer == (1llu << 36) - 1)
@@ -853,8 +853,24 @@ ESFM_update_timers(esfm_chip *chip)
 			chip->eg_timer_overflow = 0;
 		}
 	}
-	
-	chip -> eg_tick ^= 1;
+
+	chip->eg_tick ^= 1;
+}
+
+/* ------------------------------------------------------------------------- */
+void
+ESFM_update_write_buffer(esfm_chip *chip)
+{
+	esfm_write_buf *write_buf;
+	while((write_buf = &chip->write_buf[chip->write_buf_start]),
+		write_buf->valid && write_buf->timestamp <= chip->write_buf_timestamp)
+	{
+		write_buf->valid = 0;
+		ESFM_write_reg(chip, write_buf->address, write_buf->data);
+		chip->write_buf_start = (chip->write_buf_start + 1) % ESFM_WRITEBUF_SIZE;
+	}
+
+	chip->write_buf_timestamp++;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -862,7 +878,7 @@ void
 ESFM_generate(esfm_chip *chip, int16_t *buf)
 {
 	int channel_idx;
-	
+
 	chip->output_accm[0] = chip->output_accm[1] = 0;
 	for (channel_idx = 0; channel_idx < 18; channel_idx++)
 	{
@@ -875,15 +891,16 @@ ESFM_generate(esfm_chip *chip, int16_t *buf)
 		{
 			ESFM_process_channel_emu(channel);
 		}
-		
+
 		chip->output_accm[0] += channel->output[0];
 		chip->output_accm[1] += channel->output[1];
 	}
-	
+
 	buf[0] = ESFM_clip_sample(chip->output_accm[0]);
 	buf[1] = ESFM_clip_sample(chip->output_accm[1]);
-	
+
 	ESFM_update_timers(chip);
+	ESFM_update_write_buffer(chip);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -891,7 +908,7 @@ void
 ESFM_generate_stream(esfm_chip *chip, int16_t *sndptr, uint32_t num_samples)
 {
 	uint32_t i;
-	
+
 	for (i = 0; i < num_samples; i++)
 	{
 		ESFM_generate(chip, sndptr);
