@@ -339,7 +339,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 {
 	uint8 nonzero;
 	uint8 rate;
-	uint2 rate_hi;
+	uint5 rate_hi;
 	uint2 rate_lo;
 	uint4 reg_rate = 0;
 	uint4 ks;
