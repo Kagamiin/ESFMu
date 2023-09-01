@@ -842,7 +842,7 @@ ESFM_slot_calc_feedback(esfm_slot *slot)
 			in1 = wave_out >> (7 - slot->mod_in_level);
 		}
 
-		slot->in.feedback_buf = wave_out >> (2 + (!chip->native_mode) * (7 - slot->mod_in_level));
+		slot->in.feedback_buf = wave_out >> (1 + (!chip->native_mode) * (7 - slot->mod_in_level));
 	}
 }
 
