@@ -140,6 +140,17 @@ static const uint8_t kslshift[4] = {
 };
 
 /*
+ * This encodes which emulation mode channels are the secondary channel in a
+ * 4-op channel pair (where the entry is non-negative), and which is the
+ * corresponding primary channel for that secondary channel.
+ */
+static const int emu_4op_secondary_to_primary[18] =
+{
+	-1, -1, -1, 0,  1,  2, -1, -1, -1,
+	-1, -1, -1, 9, 10, 11, -1, -1, -1
+};
+
+/*
 	envelope generator constants
 */
 
@@ -348,6 +359,27 @@ ESFM_envelope_calc(esfm_slot *slot)
 	uint9 eg_rout;
 	int16 eg_inc;
 	bool reset = 0;
+	bool key_on;
+
+	key_on = *slot->in.key_on;
+	if (!slot->chip->native_mode)
+	{
+		int pair_primary_idx = emu_4op_secondary_to_primary[slot->channel->channel_idx];
+		if (pair_primary_idx >= 0)
+		{
+			esfm_channel *pair_primary = &slot->channel->chip->channels[pair_primary_idx];
+			if (pair_primary->emu_mode_4op_enable)
+			{
+				key_on = *pair_primary->slots[0].in.key_on;
+			}
+		}
+		else if ((slot->channel->channel_idx == 7 || slot->channel->channel_idx == 8)
+			&& slot->slot_idx == 1)
+		{
+			key_on = slot->channel->key_on_2;
+		}
+	}
+
 	slot->in.eg_output = slot->in.eg_position + (slot->t_level << 2)
 		+ (slot->in.eg_ksl_offset >> kslshift[slot->ksl]);
 	if (slot->tremolo_en)
@@ -363,7 +395,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 		}
 		slot->in.eg_output += tremolo;
 	}
-	if (*slot->in.key_on && slot->in.eg_state == EG_RELEASE)
+	if (key_on && slot->in.eg_state == EG_RELEASE)
 	{
 		if (!slot->in.eg_delay_run && slot->chip->native_mode)
 		{
@@ -479,7 +511,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 			{
 				slot->in.eg_state = EG_DECAY;
 			}
-			else if (*slot->in.key_on && shift > 0 && rate_hi != 0x0f)
+			else if (key_on && shift > 0 && rate_hi != 0x0f)
 			{
 				eg_inc = ~slot->in.eg_position >> (4 - shift);
 			}
@@ -508,7 +540,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 	{
 		slot->in.eg_state = EG_ATTACK;
 	}
-	if (!*slot->in.key_on)
+	if (!key_on)
 	{
 		slot->in.eg_state = EG_RELEASE;
 		slot->in.eg_delay_run = 0;
@@ -614,14 +646,29 @@ static void
 ESFM_phase_generate_emu(esfm_slot *slot)
 {
 	esfm_chip *chip;
+	uint3 block;
 	uint10 f_num;
 	uint32 basefreq;
 	bool rm_xor, n_bit;
 	uint23 noise;
 	uint10 phase;
+	int pair_primary_idx;
 
 	chip = slot->chip;
+	block = slot->channel->slots[0].block;
 	f_num = slot->channel->slots[0].f_num;
+
+	pair_primary_idx = emu_4op_secondary_to_primary[slot->channel->channel_idx];
+	if (pair_primary_idx >= 0)
+	{
+		esfm_channel *pair_primary = &slot->channel->chip->channels[pair_primary_idx];
+		if (pair_primary->emu_mode_4op_enable)
+		{
+			block = pair_primary->slots[0].block;
+			f_num = pair_primary->slots[0].f_num;
+		}
+	}
+
 	if (slot->vibrato_en)
 	{
 		int8_t range;
@@ -646,7 +693,7 @@ ESFM_phase_generate_emu(esfm_slot *slot)
 		}
 		f_num += range;
 	}
-	basefreq = (f_num << slot->channel->slots[0].block) >> 1;
+	basefreq = (f_num << block) >> 1;
 	phase = (uint10)(slot->in.phase_acc >> 9);
 	if (slot->in.phase_reset)
 	{
@@ -732,12 +779,27 @@ ESFM_slot_generate(esfm_slot *slot)
 static void
 ESFM_slot_generate_emu(esfm_slot *slot)
 {
-	envelope_sinfunc wavegen = envelope_sin[slot->waveform];
+	esfm_chip *chip = slot->chip;
+	envelope_sinfunc wavegen = envelope_sin[slot->waveform & (0x03 | (0x02 << (chip->emu_newmode != 0)))];
+	bool rhythm_slot_double_volume = (slot->chip->emu_rhy_mode_flags & 0x20) != 0
+		&& slot->channel->channel_idx >= 6 && slot->channel->channel_idx < 9;
 	int16 phase = slot->in.phase_out;
 	phase += *slot->in.mod_input & slot->in.emu_mod_enable;
 	slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
-	slot->channel->output[0] += slot->in.output & slot->channel->slots[0].out_enable[0] & slot->in.emu_output_enable;
-	slot->channel->output[1] += slot->in.output & slot->channel->slots[0].out_enable[1] & slot->in.emu_output_enable;
+	if (chip->emu_newmode)
+	{
+		slot->channel->output[0] += (slot->in.output & slot->channel->slots[0].out_enable[0]
+			& slot->in.emu_output_enable) << rhythm_slot_double_volume;
+		slot->channel->output[1] += (slot->in.output & slot->channel->slots[0].out_enable[1]
+			& slot->in.emu_output_enable) << rhythm_slot_double_volume;
+	}
+	else
+	{
+		slot->channel->output[0] += (slot->in.output & slot->in.emu_output_enable)
+			<< rhythm_slot_double_volume;
+		slot->channel->output[1] += (slot->in.output & slot->in.emu_output_enable)
+			<< rhythm_slot_double_volume;
+	}
 }
 
 /* ------------------------------------------------------------------------- */

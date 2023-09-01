@@ -166,6 +166,9 @@ struct _esfm_slot
 	bool ksr;
 	uint2 ksl;
 	uint3 env_delay;
+	// overlaps with env_delay bit 0
+	// TODO: check if emu mode only uses this, or if it actually overwrites the channel field used by native mode
+	bool emu_key_on;
 
 	// Internal state
 	esfm_slot_internal in;
@@ -179,7 +182,7 @@ struct _esfm_channel
 	int16 output[2];
 	bool key_on;
 	bool emu_mode_4op_enable;
-	// Only for channels 17 and 18
+	// Only for channels 17 and 18 (one-based)
 	bool key_on_2;
 	bool emu_mode_4op_enable_2;
 };

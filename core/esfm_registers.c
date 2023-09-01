@@ -148,12 +148,22 @@ ESFM_emu_rearrange_connections(esfm_channel *channel)
 				emu_4op_alg_output_enable[algorithm][i + 2] ? ~((int12) 0) : 0;
 		}
 	}
+	else if ((channel->chip->emu_rhy_mode_flags & 0x20) != 0
+		&& (channel->channel_idx == 7 || channel->channel_idx == 8))
+	{
+		channel->slots[0].in.emu_mod_enable = 0;
+		channel->slots[1].in.emu_mod_enable = 0;
+		channel->slots[0].in.emu_output_enable = ~((int12) 0);
+		channel->slots[1].in.emu_output_enable = ~((int12) 0);
+	}
 	else
 	{
 		channel->slots[0].in.mod_input = &channel->slots[0].in.feedback_buf;
 
+		channel->slots[0].in.emu_mod_enable = ~((int12) 0);
 		channel->slots[0].in.emu_output_enable =
 			(channel->slots[0].emu_connection_typ != 0) ? ~((int12) 0) : 0;
+		channel->slots[1].in.emu_output_enable = ~((int12) 0);
 		channel->slots[1].in.emu_mod_enable =
 			(channel->slots[0].emu_connection_typ != 0) ? 0 : ~((int12) 0);
 	}
@@ -200,6 +210,11 @@ ESFM_native_to_emu_switch(esfm_chip *chip)
 static void
 ESFM_slot_update_keyscale(esfm_slot *slot)
 {
+	if (slot->slot_idx > 0 && !slot->chip->native_mode)
+	{
+		return;
+	}
+
 	int16 ksl = (kslrom[slot->f_num >> 6] << 2) - ((0x08 - slot->block) << 5);
 	if (ksl < 0)
 	{
@@ -235,6 +250,8 @@ ESFM_emu_channel_update_keyscale(esfm_channel *channel)
 	{
 		int i;
 		esfm_channel *secondary = &channel->chip->channels[channel->channel_idx + 3];
+		secondary->slots[0].f_num = channel->slots[0].f_num;
+		secondary->slots[0].block = channel->slots[0].block;
 
 		for (i = 0; i < 2; i++)
 		{
@@ -327,6 +344,7 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 			break;
 		case 0x05:
 			slot->env_delay = data >> 5;
+			slot->emu_key_on = (data >> 5) & 0x01;
 			slot->block = (data >> 2) & 0x07;
 			slot->f_num = (slot->f_num & 0xff) | ((data & 0x03) << 8);
 			ESFM_slot_update_keyscale(slot);
@@ -539,6 +557,16 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 		chip->emu_rhy_mode_flags = data & 0x3f;
 		chip->emu_vibrato_deep = (data & 0x40) != 0;
 		chip->emu_tremolo_deep = (data & 0x80) != 0;
+		if (chip->emu_rhy_mode_flags & 0x20)
+		{
+			chip->channels[6].key_on = (data & 0x10) != 0;
+			chip->channels[7].key_on = (data & 0x01) != 0;
+			chip->channels[8].key_on = (data & 0x04) != 0;
+			chip->channels[7].key_on_2 = (data & 0x08) != 0;
+			chip->channels[8].key_on_2 = (data & 0x02) != 0;
+		}
+		ESFM_emu_rearrange_connections(&chip->channels[7]);
+		ESFM_emu_rearrange_connections(&chip->channels[8]);
 		return;
 	}
 
@@ -561,6 +589,9 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 				{
 					chip->channels[i].emu_mode_4op_enable = (data >> i) & 0x01;
 					chip->channels[i + 9].emu_mode_4op_enable = (data >> (i + 3)) & 0x01;
+				}
+				for (i = 0; i < 6; i++)
+				{
 					ESFM_emu_rearrange_connections(&chip->channels[i]);
 					ESFM_emu_rearrange_connections(&chip->channels[i + 9]);
 				}
@@ -582,7 +613,7 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 				break;
 			case 0x08:
 				chip->keyscale_mode = (data & 0x40) != 0;
-                break;
+				break;
 			}
 		}
 		else
@@ -606,7 +637,7 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 				}
 			case 0x08:
 				chip->keyscale_mode = (data & 0x40) != 0;
-                break;
+				break;
 			}
 		}
 	case 0x20: case 0x30:
@@ -619,6 +650,7 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 		if (emu_slot_idx >= 0)
 		{
 			ESFM_slot_write(&chip->channels[natv_chan_idx].slots[natv_slot_idx], 0x1, data);
+			ESFM_emu_channel_update_keyscale(&chip->channels[natv_chan_idx]);
 		}
 		break;
 	case 0x60: case 0x70:
@@ -644,7 +676,13 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 		if (emu_chan_idx >= 0)
 		{
 			esfm_channel *channel = &chip->channels[emu_chan_idx];
+			// TODO: check if emulation mode actually writes to the native mode key on registers
+			// it might only use slot 0's emu key on field...
 			channel->key_on = (data & 0x20) != 0;
+			if (channel->channel_idx == 7 || channel->channel_idx == 8)
+			{
+				channel->key_on_2 = (data & 0x20) != 0;
+			}
 			ESFM_slot_write(&channel->slots[0], 0x5, data);
 			ESFM_emu_channel_update_keyscale(&chip->channels[emu_chan_idx]);
 		}
