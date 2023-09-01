@@ -144,6 +144,7 @@ struct _esfm_slot
 	uint10 f_num;
 	uint3 block;
 	uint3 output_level;
+    // a.k.a. feedback level in emu mode
 	uint3 mod_in_level;
 
 	uint6 t_level;

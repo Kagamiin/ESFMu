@@ -806,16 +806,44 @@ ESFM_slot_generate_emu(esfm_slot *slot)
 static void
 ESFM_slot_calc_feedback(esfm_slot *slot)
 {
-	slot->in.feedback_buf = (slot->in.output + slot->in.prev_output) >> 2;
-	slot->in.prev_output = slot->in.output;
-}
+	esfm_chip *chip = slot->chip;
+	uint32 basefreq, phase_offset;
+	uint3 block;
+	uint10 f_num;
+	int12 in1 = 0, in2 = 0, wave_out;
+	int16 phase;
+	uint19 regressed_phase;
+	int iter_counter;
+	envelope_sinfunc wavegen;
 
-/* ------------------------------------------------------------------------- */
-static void
-ESFM_slot_calc_feedback_emu(esfm_slot *slot)
-{
-	slot->in.feedback_buf = (slot->in.output + slot->in.prev_output) >> (2 + 7 - slot->mod_in_level);
-	slot->in.prev_output = slot->in.output;
+	if (chip->native_mode)
+	{
+		wavegen = envelope_sin[slot->waveform];
+	}
+	else
+	{
+		wavegen = envelope_sin[slot->waveform & (0x03 | (0x02 << (chip->emu_newmode != 0)))];
+	}
+
+	if (slot->mod_in_level)
+	{
+		f_num = slot->f_num;
+		block = slot->block;
+
+		basefreq = (f_num << block) >> 1;
+		phase_offset = (basefreq * mt[slot->mult]) >> 1;
+		for (iter_counter = 28; iter_counter >= 0; iter_counter--)
+		{
+			regressed_phase = (uint19)((uint32)slot->in.phase_acc - iter_counter * phase_offset) & ((1 << 19) - 1);
+			phase = (int16)(regressed_phase >> 9);
+			phase += (in1 + in2) >> 2;
+			wave_out = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
+			in2 = in1;
+			in1 = wave_out >> (7 - slot->mod_in_level);
+		}
+
+		slot->in.feedback_buf = wave_out >> (2 + (!chip->native_mode) * (7 - slot->mod_in_level));
+	}
 }
 
 /* ------------------------------------------------------------------------- */
@@ -840,7 +868,7 @@ ESFM_process_channel_emu(esfm_channel *channel)
 {
 	int slot_idx;
 	channel->output[0] = channel->output[1] = 0;
-	ESFM_slot_calc_feedback_emu(&channel->slots[0]);
+	ESFM_slot_calc_feedback(&channel->slots[0]);
 	for (slot_idx = 0; slot_idx < 2; slot_idx++)
 	{
 		esfm_slot *slot = &channel->slots[slot_idx];
