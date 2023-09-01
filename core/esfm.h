@@ -193,6 +193,7 @@ struct _esfm_chip
 	int32 output_accm[2];
 	uint_fast16_t addr_latch;
 
+	bool emu_wavesel_enable;
 	bool emu_newmode;
 	bool native_mode;
 
@@ -223,7 +224,8 @@ struct _esfm_chip
 	bool emu_vibrato_deep;
 	bool emu_tremolo_deep;
 
-	uint8 timers[2];
+	uint8 timer_reload[2];
+	uint8 timer_counter[2];
 	bool timer_enable[2];
 	bool timer_mask[2];
 	bool timer_overflow[2];

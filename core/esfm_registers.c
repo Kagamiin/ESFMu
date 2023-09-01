@@ -45,11 +45,20 @@ static const int16 kslrom[16] = {
     address decoding
 */
 
+/*
+ * This maps the low 5 bits of emulation mode address to an emulation mode
+ * slot; taken straight from Nuked OPL3. Used for decoding certain emulation
+ * mode address ranges.
+ */
 static const int8_t ad_slot[0x20] = {
 	 0,  1,  2,  3,  4,  5, -1, -1,  6,  7,  8,  9, 10, 11, -1, -1,
 	12, 13, 14, 15, 16, 17, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
 };
 
+/*
+ * This maps an emulation mode slot index to a tuple representing the
+ * corresponding native mode channel and slot.
+ */
 static const emu_slot_channel_mapping emu_slot_map[36] =
 {
 	{ 0, 0}, { 1, 0}, { 2, 0}, { 0, 1}, { 1, 1}, { 2, 1},
@@ -59,6 +68,134 @@ static const emu_slot_channel_mapping emu_slot_map[36] =
 	{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1},
 	{15, 0}, {16, 0}, {17, 0}, {15, 1}, {16, 1}, {17, 1}
 };
+
+/*
+ * This encodes which emulation mode channels are the secondary channel in a
+ * 4-op channel pair (where the entry is non-negative), and which is the
+ * corresponding primary channel for that secondary channel.
+ */
+static const int emu_4op_secondary_to_primary[18] =
+{
+	-1, -1, -1, 0,  1,  2, -1, -1, -1,
+	-1, -1, -1, 9, 10, 11, -1, -1, -1
+};
+
+/*
+ * This encodes the operator outputs to be enabled or disabled for
+ * each 4-op algorithm in emulation mode.
+ * Indices: FM+FM, FM+AM, AM+FM, AM+AM (lower channel MSB, upper channel LSB)
+ * Values: enable OP1, OP2, OP3, OP4
+ */
+static const bool emu_4op_alg_output_enable[4][4] =
+{
+	{0, 0, 0, 1},
+	{0, 1, 0, 1},
+	{1, 0, 0, 1},
+	{1, 0, 1, 1}
+};
+
+/*
+ * This encodes the operator interconnections to be enabled or disabled for
+ * each 4-op algorithm in emulation mode.
+ * Indices: FM+FM, FM+AM, AM+FM, AM+AM (lower channel MSB, upper channel LSB)
+ * Values: enable OP1FB, OP1->2, OP2->3, OP3->4
+ */
+static const bool emu_4op_alg_mod_enable[4][4] =
+{
+	{1, 1, 1, 1},
+	{1, 1, 0, 1},
+	{1, 0, 1, 1},
+	{1, 0, 1, 0}
+};
+
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_emu_rearrange_connections(esfm_channel *channel)
+{
+	int secondary_to_primary;
+
+	secondary_to_primary = emu_4op_secondary_to_primary[channel->channel_idx];
+	if (secondary_to_primary >= 0)
+	{
+		esfm_channel *pair_primary = &channel->chip->channels[secondary_to_primary];
+		if (pair_primary->emu_mode_4op_enable)
+		{
+			// always work from primary channel in pair when dealing with 4-op
+			channel = pair_primary;
+		}
+	}
+
+	if (channel->emu_mode_4op_enable && (channel->channel_idx % 9) < 3 && channel->chip->emu_newmode)
+	{
+		esfm_channel *secondary = &channel->chip->channels[channel->channel_idx + 3];
+		uint2 algorithm = ((channel->slots[0].emu_connection_typ != 0) << 1)
+			| (secondary->slots[0].emu_connection_typ != 0);
+		int i;
+
+		secondary->slots[0].in.mod_input = &channel->slots[1].in.output;
+
+		for (i = 0; i < 2; i++)
+		{
+			channel->slots[i].in.emu_mod_enable =
+				emu_4op_alg_mod_enable[algorithm][i] ? ~((int12) 0) : 0;
+			channel->slots[i].in.emu_output_enable =
+				emu_4op_alg_output_enable[algorithm][i] ? ~((int12) 0) : 0;
+
+			secondary->slots[i].in.emu_mod_enable =
+				emu_4op_alg_mod_enable[algorithm][i + 2] ? ~((int12) 0) : 0;
+			secondary->slots[i].in.emu_output_enable =
+				emu_4op_alg_output_enable[algorithm][i + 2] ? ~((int12) 0) : 0;
+		}
+	}
+	else
+	{
+		channel->slots[0].in.mod_input = &channel->slots[0].in.feedback_buf;
+
+		channel->slots[0].in.emu_output_enable =
+			(channel->slots[0].emu_connection_typ != 0) ? ~((int12) 0) : 0;
+		channel->slots[1].in.emu_mod_enable =
+			(channel->slots[0].emu_connection_typ != 0) ? 0 : ~((int12) 0);
+	}
+}
+
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_emu_to_native_switch(esfm_chip *chip)
+{
+	size_t channel_idx, slot_idx;
+	for (channel_idx = 0; channel_idx < 18; channel_idx++)
+	{
+		for (slot_idx = 0; slot_idx < 4; slot_idx++)
+		{
+			esfm_channel *channel = &chip->channels[channel_idx];
+			esfm_slot *slot = &channel->slots[slot_idx];
+
+			if (slot_idx == 0)
+			{
+				slot->in.mod_input = &slot->in.feedback_buf;
+			}
+			else
+			{
+				esfm_slot *prev_slot = &channel->slots[slot_idx - 1];
+				slot->in.mod_input = &prev_slot->in.output;
+			}
+		}
+	}
+}
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_native_to_emu_switch(esfm_chip *chip)
+{
+	size_t channel_idx;
+	for (channel_idx = 0; channel_idx < 18; channel_idx++)
+	{
+		ESFM_emu_rearrange_connections(&chip->channels[channel_idx]);
+	}
+}
+
 
 /* ------------------------------------------------------------------------- */
 static void
@@ -231,10 +368,10 @@ ESFM_write_reg_native (esfm_chip *chip, uint16_t address, uint8_t data)
 		switch (address & 0x5ff)
 		{
 			case TIMER1_REG:
-				chip->timers[0] = data;
+				chip->timer_reload[0] = data;
 				break;
 			case TIMER2_REG:
-				chip->timers[1] = data;
+				chip->timer_reload[1] = data;
 				break;
 			case TIMER_SETUP_REG:
 				if (data & 0x80)
@@ -313,10 +450,10 @@ ESFM_readback_reg_native (esfm_chip *chip, uint16_t address)
 		switch (address & 0x5ff)
 		{
 			case TIMER1_REG:
-				data = chip->timers[0];
+				data = chip->timer_reload[0];
 				break;
 			case TIMER2_REG:
-				data = chip->timers[1];
+				data = chip->timer_reload[1];
 				break;
 			case TIMER_SETUP_REG:
 				data |= chip->timer_enable[0] != 0;
@@ -380,25 +517,60 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 			int i;
 			switch(reg & 0x0f)
 			{
+			case 0x01:
+				chip->emu_wavesel_enable = (data & 0x20) != 0;
+			case 0x02:
+				chip->timer_reload[0] = data;
+			case 0x03:
+				chip->timer_reload[1] = data;
 			case 0x04:
 				for (i = 0; i < 3; i++)
 				{
 					chip->channels[i].emu_mode_4op_enable = (data >> i) & 0x01;
 					chip->channels[i + 9].emu_mode_4op_enable = (data >> (i + 3)) & 0x01;
+					ESFM_emu_rearrange_connections(&chip->channels[i]);
+					ESFM_emu_rearrange_connections(&chip->channels[i + 9]);
 				}
-				// ESFM_emu_rearrange_connections(chip);
 				break;
 			case 0x05:
 				chip->emu_newmode = data & 0x01;
-				chip->native_mode = (data & 0x80) != 0;
-				// ESFM_check_native_mode_switch(chip);
+				if (chip->native_mode != ((data & 0x80) != 0))
+				{
+					chip->native_mode = (data & 0x80) != 0;
+					if (chip->native_mode)
+					{
+						ESFM_emu_to_native_switch(chip);
+					}
+					else
+					{
+						ESFM_native_to_emu_switch(chip);
+					}
+				}
 				break;
+			case 0x08:
+				chip->keyscale_mode = (data & 0x40) != 0;
+                break;
 			}
 		}
 		else
 		{
 			switch(reg & 0x0f)
 			{
+			case 0x01:
+				chip->emu_wavesel_enable = (data & 0x20) != 0;
+			case 0x02:
+				chip->timer_reload[0] = data;
+			case 0x03:
+				chip->timer_reload[1] = data;
+			case 0x04:
+				chip->timer_enable[0] = data & 0x01;
+				chip->timer_enable[1] = (data & 0x02) != 0;
+				chip->timer_mask[0] = (data & 0x20) != 0;
+				chip->timer_mask[1] = (data & 0x40) != 0;
+				if (data & 0x80)
+				{
+					chip->irq_bit = 0;
+				}
 			case 0x08:
 				chip->keyscale_mode = (data & 0x40) != 0;
                 break;
@@ -446,7 +618,7 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 		if (emu_chan_idx >= 0)
 		{
 			ESFM_slot_write(&chip->channels[emu_chan_idx].slots[0], 0x6, data);
-			// ESFM_emu_rearrange_connections(chip);
+			ESFM_emu_rearrange_connections(&chip->channels[emu_chan_idx]);
 		}
 		break;
 	case 0xe0: case 0xf0:
@@ -528,7 +700,7 @@ ESFM_write_port (esfm_chip *chip, uint8_t offset, uint8_t data)
 		{
 			case 0:
 				chip->native_mode = 0;
-				// ESFM_do_emu_mode_switch(chip);
+				ESFM_native_to_emu_switch(chip);
 				break;
 			case 1:
 				ESFM_write_reg_native(chip, chip->addr_latch, data);

@@ -353,7 +353,14 @@ ESFM_envelope_calc(esfm_slot *slot)
 	if (slot->tremolo_en)
 	{
 		uint8 tremolo;
-		tremolo = slot->channel->chip->tremolo >> ((!slot->tremolo_deep << 1) + 2);
+		if (slot->chip->native_mode)
+		{
+			tremolo = slot->channel->chip->tremolo >> ((!slot->tremolo_deep << 1) + 2);
+		}
+		else
+		{
+			tremolo = slot->channel->chip->tremolo >> ((!slot->chip->emu_tremolo_deep << 1) + 2);
+		}
 		slot->in.eg_output += tremolo;
 	}
 	if (*slot->in.key_on && slot->in.eg_state == EG_RELEASE)
@@ -727,7 +734,7 @@ ESFM_slot_generate_emu(esfm_slot *slot)
 {
 	envelope_sinfunc wavegen = envelope_sin[slot->waveform];
 	int16 phase = slot->in.phase_out;
-	phase += *slot->in.mod_input;
+	phase += *slot->in.mod_input & slot->in.emu_mod_enable;
 	slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
 	slot->channel->output[0] += slot->in.output & slot->channel->slots[0].out_enable[0] & slot->in.emu_output_enable;
 	slot->channel->output[1] += slot->in.output & slot->channel->slots[0].out_enable[1] & slot->in.emu_output_enable;
