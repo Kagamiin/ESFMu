@@ -162,7 +162,7 @@ struct _esfm_slot
 	uint10 f_num;
 	uint3 block;
 	uint3 output_level;
-    // a.k.a. feedback level in emu mode
+	// a.k.a. feedback level in emu mode
 	uint3 mod_in_level;
 
 	uint6 t_level;
@@ -253,17 +253,17 @@ struct _esfm_chip
 	bool timer_overflow[2];
 	bool irq_bit;
 
-    // Halts the envelope generators from advancing.
+	// Halts the envelope generators from advancing.
 	bool test_bit_eg_halt;
-    /*
-     * Activates some sort of waveform test mode that amplifies the output volume greatly
-     * and continuously shifts the waveform table downwards, possibly also outputting the
-     * waveform's derivative? (it's so weird!)
-     */
+	/*
+	 * Activates some sort of waveform test mode that amplifies the output volume greatly
+	 * and continuously shifts the waveform table downwards, possibly also outputting the
+	 * waveform's derivative? (it's so weird!)
+	 */
 	bool test_bit_distort;
-    // Appears to attenuate the output by about 3 dB.
+	// Appears to attenuate the output by about 3 dB.
 	bool test_bit_attenuate;
-    // Resets all phase generators and holds them in the reset state while this bit is set.
+	// Resets all phase generators and holds them in the reset state while this bit is set.
 	bool test_bit_phase_stop_reset;
 
 	esfm_write_buf write_buf[ESFM_WRITEBUF_SIZE];
