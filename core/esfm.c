@@ -27,29 +27,13 @@
 #include <stddef.h>
 #include <string.h>
 
-#define RSM_FRAC    10
-
-/* Channel types */
-
-enum {
-	ch_2op = 0,
-	ch_4op = 1,
-	ch_4op2 = 2,
-	ch_drum = 3
-};
-
-/* Envelope key types */
-
-enum {
-	egk_norm = 0x01,
-	egk_drum = 0x02
-};
-
-
 /*
-	logsin table
-*/
-
+ * Log-scale quarter sine table extracted from OPL3 ROM; taken straight from
+ * Nuked OPL3 source code.
+ * TODO: Extract sine table from ESFM die scans... does ESFM even use a sine
+ * table? Patent documents give a hint to a possible method of generating sine
+ * waves using some sort of boolean logic wizardry (lol)
+ */
 static const uint16_t logsinrom[256] = {
 	0x859, 0x6c3, 0x607, 0x58b, 0x52e, 0x4e4, 0x4a6, 0x471,
 	0x443, 0x41a, 0x3f5, 0x3d3, 0x3b5, 0x398, 0x37e, 0x365,
@@ -86,9 +70,11 @@ static const uint16_t logsinrom[256] = {
 };
 
 /*
-	exp table
-*/
-
+ * Inverse exponent table extracted from OPL3 ROM; taken straight from
+ * Nuked OPL3 source code.
+ * TODO: Verify if ESFM uses an exponent table or if it possibly uses another
+ * method to skirt around Yamaha's patents?
+ */
 static const uint16_t exprom[256] = {
 	0x7fa, 0x7f5, 0x7ef, 0x7ea, 0x7e4, 0x7df, 0x7da, 0x7d4,
 	0x7cf, 0x7c9, 0x7c4, 0x7bf, 0x7b9, 0x7b4, 0x7ae, 0x7a9,
@@ -125,16 +111,18 @@ static const uint16_t exprom[256] = {
 };
 
 /*
-	freq mult table multiplied by 2
-
-	1/2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 12, 12, 15, 15
-*/
-
+ * Frequency multiplier table multiplied by 2; taken straight from Nuked OPL3
+ * source code.
+ */
 static const uint8_t mt[16] = {
 	1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 20, 24, 24, 30, 30
 };
 
-
+/*
+ * This is used during the envelope generation to apply KSL to the envelope by
+ * determining how much to shift right the keyscale attenuation value before
+ * adding it to the envelope level.
+ */
 static const uint8_t kslshift[4] = {
 	8, 1, 2, 0
 };
@@ -151,19 +139,14 @@ static const int emu_4op_secondary_to_primary[18] =
 };
 
 /*
-	envelope generator constants
-*/
-
+ * Envelope generator dither table, taken straight from Nuked OPL3 source code.
+ */
 static const uint8_t eg_incstep[4][4] = {
 	{ 0, 0, 0, 0 },
 	{ 1, 0, 0, 0 },
 	{ 1, 0, 1, 0 },
 	{ 1, 1, 1, 0 }
 };
-
-/*
-	Envelope generator
-*/
 
 typedef int12(*envelope_sinfunc)(uint10 phase, uint10 envelope);
 
@@ -816,22 +799,21 @@ ESFM_slot_calc_feedback(esfm_slot *slot)
 	int iter_counter;
 	envelope_sinfunc wavegen;
 
-	if (chip->native_mode)
-	{
-		wavegen = envelope_sin[slot->waveform];
-	}
-	else
-	{
-		wavegen = envelope_sin[slot->waveform & (0x03 | (0x02 << (chip->emu_newmode != 0)))];
-	}
-
 	if (slot->mod_in_level)
 	{
+		if (chip->native_mode)
+		{
+			wavegen = envelope_sin[slot->waveform];
+		}
+		else
+		{
+			wavegen = envelope_sin[slot->waveform & (0x03 | (0x02 << (chip->emu_newmode != 0)))];
+		}
 		f_num = slot->f_num;
 		block = slot->block;
-
 		basefreq = (f_num << block) >> 1;
 		phase_offset = (basefreq * mt[slot->mult]) >> 1;
+
 		for (iter_counter = 28; iter_counter >= 0; iter_counter--)
 		{
 			regressed_phase = (uint19)((uint32)slot->in.phase_acc - iter_counter * phase_offset) & ((1 << 19) - 1);

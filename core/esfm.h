@@ -1,3 +1,20 @@
+/*
+ * ESFMu: emulator for the ESS "ESFM" enhanced OPL3 clone
+ * Copyright (C) 2023 Kagamiin~ and contributors
+ *
+ * ESFMu is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 2.1
+ * of the License, or (at your option) any later version.
+ *
+ * ESFMu is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with ESFMu. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 #include <stddef.h>
 #include <stdint.h>
@@ -74,6 +91,7 @@ typedef uint16_t uint16;
 typedef uint32_t uint19;
 typedef uint32_t uint23;
 typedef uint32_t uint32;
+typedef uint64_t uint36;
 
 typedef int16_t int12;
 typedef int16_t int16;
@@ -92,10 +110,10 @@ enum eg_states
 
 typedef struct _esfm_write_buf
 {
-	bool valid;
+	uint64_t timestamp;
 	uint16_t address;
 	uint8_t data;
-	uint64_t timestamp;
+	bool valid;
 
 } esfm_write_buf;
 
@@ -183,7 +201,7 @@ struct _esfm_channel
 	int16 output[2];
 	bool key_on;
 	bool emu_mode_4op_enable;
-	// Only for channels 17 and 18 (one-based)
+	// Only for 17th and 18th channels
 	bool key_on_2;
 	bool emu_mode_4op_enable_2;
 };
@@ -223,7 +241,7 @@ struct _esfm_chip
 
 	// 0xbd register in emulation mode, exposed in 0x4bd in native mode
 	// ("bass drum" register)
-	bool emu_rhy_mode_flags;
+	uint8 emu_rhy_mode_flags;
 
 	bool emu_vibrato_deep;
 	bool emu_tremolo_deep;
@@ -235,14 +253,23 @@ struct _esfm_chip
 	bool timer_overflow[2];
 	bool irq_bit;
 
+    // Halts the envelope generators from advancing.
+	bool test_bit_eg_halt;
+    /*
+     * Activates some sort of waveform test mode that amplifies the output volume greatly
+     * and continuously shifts the waveform table downwards, possibly also outputting the
+     * waveform's derivative? (it's so weird!)
+     */
 	bool test_bit_distort;
+    // Appears to attenuate the output by about 3 dB.
 	bool test_bit_attenuate;
-	bool test_bit_mute;
+    // Resets all phase generators and holds them in the reset state while this bit is set.
+	bool test_bit_phase_stop_reset;
 
 	esfm_write_buf write_buf[ESFM_WRITEBUF_SIZE];
 	size_t write_buf_start;
 	size_t write_buf_end;
-	size_t write_buf_timestamp;
+	uint64_t write_buf_timestamp;
 };
 
 #ifdef __cplusplus

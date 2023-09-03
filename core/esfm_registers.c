@@ -3,9 +3,7 @@
  * Copyright (C) 2023 Kagamiin~ and contributors
  *
  * ---------------------------------------------------------------------------
- *
  * esfm_register.c - functions for handling register and port writes and reads
- *
  * ---------------------------------------------------------------------------
  *
  * This file includes code and data from the Nuked OPL3 project, copyright (C)
@@ -34,16 +32,14 @@
 
 
 /*
-	ksl table
-*/
+ * Table of KSL values extracted from OPL3 ROM; taken straight from Nuked OPL3
+ * source code.
+ * TODO: Check if ESFM uses the same KSL values.
+ */
 
 static const int16 kslrom[16] = {
 	0, 32, 40, 45, 48, 51, 53, 55, 56, 58, 59, 60, 61, 62, 63, 64
 };
-
-/*
-    address decoding
-*/
 
 /*
  * This maps the low 5 bits of emulation mode address to an emulation mode
@@ -372,6 +368,7 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 #define CONFIG_REG (0x408)
 #define BASSDRUM_REG (0x4bd)
 #define TEST_REG (0x501)
+#define NATIVE_MODE_REG (0x505)
 
 /* ------------------------------------------------------------------------- */
 static void
@@ -445,9 +442,10 @@ ESFM_write_reg_native (esfm_chip *chip, uint16_t address, uint8_t data)
 				chip->emu_tremolo_deep = (data & 0x80) != 0;
 				break;
 			case TEST_REG:
+				chip->test_bit_eg_halt = (data & 0x01) | ((data & 0x20) != 0);
 				chip->test_bit_distort = (data & 0x02) != 0;
 				chip->test_bit_attenuate = (data & 0x10) != 0;
-				chip->test_bit_mute = (data & 0x40) != 0;
+				chip->test_bit_phase_stop_reset = (data & 0x40) != 0;
 				break;
 		}
 	}
@@ -521,9 +519,14 @@ ESFM_readback_reg_native (esfm_chip *chip, uint16_t address)
 				data |= chip->emu_tremolo_deep << 7;
 				break;
 			case TEST_REG:
+				data |= chip->test_bit_eg_halt != 0;
 				data |= (chip->test_bit_distort != 0) << 1;
 				data |= (chip->test_bit_attenuate != 0) << 4;
-				data |= (chip->test_bit_mute != 0) << 6;
+				data |= (chip->test_bit_eg_halt != 0) << 5;
+				data |= (chip->test_bit_phase_stop_reset != 0) << 6;
+				break;
+			case NATIVE_MODE_REG:
+				data |= (chip->native_mode != 0) << 7;
 				break;
 		}
 	}
@@ -559,6 +562,8 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 		chip->emu_tremolo_deep = (data & 0x80) != 0;
 		if (chip->emu_rhy_mode_flags & 0x20)
 		{
+			// TODO: check if writes to 0xbd actually affect the readable key-on flags at
+			// 0x246, 0x247, 0x248; and if there's any visible effect from the SD and TC flags
 			chip->channels[6].key_on = (data & 0x10) != 0;
 			chip->channels[7].key_on = (data & 0x01) != 0;
 			chip->channels[8].key_on = (data & 0x04) != 0;
@@ -580,10 +585,13 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 			{
 			case 0x01:
 				chip->emu_wavesel_enable = (data & 0x20) != 0;
+				break;
 			case 0x02:
 				chip->timer_reload[0] = data;
+				break;
 			case 0x03:
 				chip->timer_reload[1] = data;
+				break;
 			case 0x04:
 				for (i = 0; i < 3; i++)
 				{
@@ -622,10 +630,13 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 			{
 			case 0x01:
 				chip->emu_wavesel_enable = (data & 0x20) != 0;
+				break;
 			case 0x02:
 				chip->timer_reload[0] = data;
+				break;
 			case 0x03:
 				chip->timer_reload[1] = data;
+				break;
 			case 0x04:
 				chip->timer_enable[0] = data & 0x01;
 				chip->timer_enable[1] = (data & 0x02) != 0;
@@ -635,11 +646,13 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 				{
 					chip->irq_bit = 0;
 				}
+				break;
 			case 0x08:
 				chip->keyscale_mode = (data & 0x40) != 0;
 				break;
 			}
 		}
+		break;
 	case 0x20: case 0x30:
 		if (emu_slot_idx >= 0)
 		{
@@ -724,7 +737,7 @@ ESFM_write_reg (esfm_chip *chip, uint16_t address, uint8_t data)
 void
 ESFM_write_reg_buffered (esfm_chip *chip, uint16_t address, uint8_t data)
 {
-	size_t timestamp;
+	uint64_t timestamp;
 	esfm_write_buf *new_entry, *last_entry;
 
 	new_entry = &chip->write_buf[chip->write_buf_end];
@@ -758,8 +771,7 @@ ESFM_readback_reg (esfm_chip *chip, uint16_t address)
 	}
 	else
 	{
-		//return ESFM_readback_reg_emu(chip, address);
-		return 0xff;
+		return 0;
 	}
 }
 
@@ -836,15 +848,29 @@ ESFM_read_port (esfm_chip *chip, uint8_t offset)
 				data |= (chip->timer_overflow[0] != 0) << 6;
 				data |= (chip->timer_overflow[1] != 0) << 5;
 				break;
-			case 1:
-				//ESFM_readback_reg_emu(chip, chip->addr_latch >> 8);
-				break;
-			case 3:
-				//ESFM_readback_reg_emu(chip, (chip->addr_latch & 0xff) | 0x100);
-				break;
 		}
 	}
 	return data;
+}
+
+/* ------------------------------------------------------------------------- */
+void
+ESFM_set_mode (esfm_chip *chip, bool native_mode)
+{
+	native_mode = native_mode != 0;
+
+	if (native_mode != (chip->native_mode != 0))
+	{
+		chip->native_mode = native_mode;
+		if (native_mode)
+		{
+			ESFM_emu_to_native_switch(chip);
+		}
+		else
+		{
+			ESFM_native_to_emu_switch(chip);
+		}
+	}
 }
 
 /* ------------------------------------------------------------------------- */
