@@ -818,6 +818,18 @@ ESFM_slot_calc_feedback(esfm_slot *slot)
 		{
 			regressed_phase = (uint19)((uint32)slot->in.phase_acc - iter_counter * phase_offset) & ((1 << 19) - 1);
 			phase = (int16)(regressed_phase >> 9);
+			/*
+			 * TODO: Figure out why the feedback formula sounds inaccurate
+			 * Stuff I've tried (Kagamiin~):
+			 * - phase += in1 >> 1; -- I mean, I had to try, right?
+			 * - phase += (in1 + in2 + in3 + in4) >> 3; -- sounds really muffled
+			 * - phase += (in1 + in2 + in3) / 6; -- sounds muffled
+			 * - phase += (in1 + 2*in2 + in3) >> 3; -- sounds really cool but quite wrong
+			 * - phase += (3*in1 + 2*in2 + in3) / 12; -- sounds surprisingly muffled lol
+			 * As far as it goes, sticking to the patent description has given the closest results, even though they don't sound too accurate either.
+			 * Changing the iteration count may help, but I've found that while it changes the brightness, it doesn't really change the timbre enough to match how the real card sounds... so something's really fishy amidst this.
+			 * Maybe the ESFM cards use a different feedback architecture to what's described in the patent? (oh no)
+			 */
 			phase += (in1 + in2) >> 2;
 			wave_out = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
 			in2 = in1;
