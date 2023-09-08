@@ -134,14 +134,14 @@ ESFM_emu_rearrange_connections(esfm_channel *channel)
 		for (i = 0; i < 2; i++)
 		{
 			channel->slots[i].in.emu_mod_enable =
-				emu_4op_alg_mod_enable[algorithm][i] ? ~((int12) 0) : 0;
+				emu_4op_alg_mod_enable[algorithm][i] ? ~((int13) 0) : 0;
 			channel->slots[i].in.emu_output_enable =
-				emu_4op_alg_output_enable[algorithm][i] ? ~((int12) 0) : 0;
+				emu_4op_alg_output_enable[algorithm][i] ? ~((int13) 0) : 0;
 
 			secondary->slots[i].in.emu_mod_enable =
-				emu_4op_alg_mod_enable[algorithm][i + 2] ? ~((int12) 0) : 0;
+				emu_4op_alg_mod_enable[algorithm][i + 2] ? ~((int13) 0) : 0;
 			secondary->slots[i].in.emu_output_enable =
-				emu_4op_alg_output_enable[algorithm][i + 2] ? ~((int12) 0) : 0;
+				emu_4op_alg_output_enable[algorithm][i + 2] ? ~((int13) 0) : 0;
 		}
 	}
 	else if ((channel->chip->emu_rhy_mode_flags & 0x20) != 0
@@ -149,19 +149,19 @@ ESFM_emu_rearrange_connections(esfm_channel *channel)
 	{
 		channel->slots[0].in.emu_mod_enable = 0;
 		channel->slots[1].in.emu_mod_enable = 0;
-		channel->slots[0].in.emu_output_enable = ~((int12) 0);
-		channel->slots[1].in.emu_output_enable = ~((int12) 0);
+		channel->slots[0].in.emu_output_enable = ~((int13) 0);
+		channel->slots[1].in.emu_output_enable = ~((int13) 0);
 	}
 	else
 	{
 		channel->slots[0].in.mod_input = &channel->slots[0].in.feedback_buf;
 
-		channel->slots[0].in.emu_mod_enable = ~((int12) 0);
+		channel->slots[0].in.emu_mod_enable = ~((int13) 0);
 		channel->slots[0].in.emu_output_enable =
-			(channel->slots[0].emu_connection_typ != 0) ? ~((int12) 0) : 0;
-		channel->slots[1].in.emu_output_enable = ~((int12) 0);
+			(channel->slots[0].emu_connection_typ != 0) ? ~((int13) 0) : 0;
+		channel->slots[1].in.emu_output_enable = ~((int13) 0);
 		channel->slots[1].in.emu_mod_enable =
-			(channel->slots[0].emu_connection_typ != 0) ? 0 : ~((int12) 0);
+			(channel->slots[0].emu_connection_typ != 0) ? 0 : ~((int13) 0);
 	}
 }
 
@@ -348,8 +348,8 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 		case 0x06:
 			slot->tremolo_deep = (data & 0x80) != 0;
 			slot->vibrato_deep = (data & 0x40) != 0;
-			slot->out_enable[0] = (data & 0x20) ? ~((int12) 0) : 0;
-			slot->out_enable[1] = (data & 0x10) ? ~((int12) 0) : 0;
+			slot->out_enable[0] = (data & 0x20) ? ~((int13) 0) : 0;
+			slot->out_enable[1] = (data & 0x10) ? ~((int13) 0) : 0;
 			slot->mod_in_level = (data >> 1) & 0x07;
 			slot->emu_connection_typ = data & 0x01;
 			break;
@@ -896,7 +896,7 @@ ESFM_init (esfm_chip *chip)
 			slot->slot_idx = slot_idx;
 			slot->in.eg_position = slot->in.eg_output = 0x1ff;
 			slot->in.eg_state = EG_RELEASE;
-			slot->in.emu_mod_enable = ~((int12) 0);
+			slot->in.emu_mod_enable = ~((int13) 0);
 			if (slot_idx == 0)
 			{
 				slot->in.mod_input = &slot->in.feedback_buf;
@@ -909,7 +909,7 @@ ESFM_init (esfm_chip *chip)
 
 			if (slot_idx == 1)
 			{
-				slot->in.emu_output_enable = ~((int12) 0);
+				slot->in.emu_output_enable = ~((int13) 0);
 			}
 
 			if (channel_idx > 15 && slot_idx & 0x02)
@@ -921,7 +921,7 @@ ESFM_init (esfm_chip *chip)
 				slot->in.key_on = &channel->key_on;
 			}
 
-			slot->out_enable[0] = slot->out_enable[1] = ~((int12) 0);
+			slot->out_enable[0] = slot->out_enable[1] = ~((int13) 0);
 		}
 	}
 

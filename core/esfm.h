@@ -69,7 +69,7 @@ typedef uint_fast32_t uint23;
 typedef uint_fast32_t uint32;
 typedef uint_fast64_t uint36;
 
-typedef int_fast16_t int12;
+typedef int_fast16_t int13;
 typedef int_fast16_t int16;
 typedef int_fast32_t int32;
 
@@ -132,12 +132,12 @@ typedef struct _esfm_slot_internal
 
 	uint4 keyscale;
 
-	int12 output;
-	int12 prev_output;
-	int12 emu_output_enable;
-	int12 emu_mod_enable;
-	int12 feedback_buf;
-	int12 *mod_input;
+	int13 output;
+	int13 prev_output;
+	int13 emu_output_enable;
+	int13 emu_mod_enable;
+	int13 feedback_buf;
+	int13 *mod_input;
 
 	uint19 phase_acc;
 	uint10 phase_out;
@@ -158,7 +158,7 @@ struct _esfm_slot
 	uint2 slot_idx;
 
 	// Register data
-	int12 out_enable[2];
+	int13 out_enable[2];
 	uint10 f_num;
 	uint3 block;
 	uint3 output_level;

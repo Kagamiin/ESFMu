@@ -148,10 +148,10 @@ static const uint8_t eg_incstep[4][4] = {
 	{ 1, 1, 1, 0 }
 };
 
-typedef int12(*envelope_sinfunc)(uint10 phase, uint10 envelope);
+typedef int13(*envelope_sinfunc)(uint10 phase, uint10 envelope);
 
 /* ------------------------------------------------------------------------- */
-static int12
+static uint12
 ESFM_envelope_calc_exp(uint16 level)
 {
 	if (level > 0x1fff)
@@ -162,11 +162,11 @@ ESFM_envelope_calc_exp(uint16 level)
 }
 
 /* ------------------------------------------------------------------------- */
-static int12
+static int13
 ESFM_envelope_calc_sin0(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	int12 neg = 0;
+	int13 neg = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
@@ -184,7 +184,7 @@ ESFM_envelope_calc_sin0(uint10 phase, uint10 envelope)
 }
 
 /* ------------------------------------------------------------------------- */
-static int12
+static int13
 ESFM_envelope_calc_sin1(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
@@ -205,7 +205,7 @@ ESFM_envelope_calc_sin1(uint10 phase, uint10 envelope)
 }
 
 /* ------------------------------------------------------------------------- */
-static int12
+static int13
 ESFM_envelope_calc_sin2(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
@@ -222,7 +222,7 @@ ESFM_envelope_calc_sin2(uint10 phase, uint10 envelope)
 }
 
 /* ------------------------------------------------------------------------- */
-static int12
+static int13
 ESFM_envelope_calc_sin3(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
@@ -239,11 +239,11 @@ ESFM_envelope_calc_sin3(uint10 phase, uint10 envelope)
 }
 
 /* ------------------------------------------------------------------------- */
-static int12
+static int13
 ESFM_envelope_calc_sin4(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	int12 neg = 0;
+	int13 neg = 0;
 	phase &= 0x3ff;
 	if ((phase & 0x300) == 0x100)
 	{
@@ -265,7 +265,7 @@ ESFM_envelope_calc_sin4(uint10 phase, uint10 envelope)
 }
 
 /* ------------------------------------------------------------------------- */
-static int12
+static int13
 ESFM_envelope_calc_sin5(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
@@ -286,10 +286,10 @@ ESFM_envelope_calc_sin5(uint10 phase, uint10 envelope)
 }
 
 /* ------------------------------------------------------------------------- */
-static int12
+static int13
 ESFM_envelope_calc_sin6(uint10 phase, uint10 envelope)
 {
-	int12 neg = 0;
+	int13 neg = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
@@ -299,11 +299,11 @@ ESFM_envelope_calc_sin6(uint10 phase, uint10 envelope)
 }
 
 /* ------------------------------------------------------------------------- */
-static int12
+static int13
 ESFM_envelope_calc_sin7(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	int12 neg = 0;
+	int13 neg = 0;
 	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
@@ -749,10 +749,13 @@ ESFM_slot_generate(esfm_slot *slot)
 	{
 		phase += *slot->in.mod_input >> (7 - slot->mod_in_level);
 	}
-	slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
+	if (slot->slot_idx > 0)
+	{
+		slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
+	}
 	if (slot->output_level)
 	{
-		int12 output_value = slot->in.output >> (7 - slot->output_level);
+		int13 output_value = slot->in.output >> (7 - slot->output_level);
 		slot->channel->output[0] += output_value & slot->out_enable[0];
 		slot->channel->output[1] += output_value & slot->out_enable[1];
 	}
@@ -768,7 +771,10 @@ ESFM_slot_generate_emu(esfm_slot *slot)
 		&& slot->channel->channel_idx >= 6 && slot->channel->channel_idx < 9;
 	int16 phase = slot->in.phase_out;
 	phase += *slot->in.mod_input & slot->in.emu_mod_enable;
-	slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
+	if (slot->slot_idx > 0 || rhythm_slot_double_volume)
+	{
+		slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
+	}
 	if (chip->emu_newmode)
 	{
 		slot->channel->output[0] += (slot->in.output & slot->channel->slots[0].out_enable[0]
@@ -793,7 +799,7 @@ ESFM_slot_calc_feedback(esfm_slot *slot)
 	uint32 basefreq, phase_offset;
 	uint3 block;
 	uint10 f_num;
-	int12 in1 = 0, in2 = 0, wave_out;
+	int13 in1 = 0, in2 = 0, wave_out;
 	int16 phase;
 	uint19 regressed_phase;
 	int iter_counter;
@@ -818,30 +824,13 @@ ESFM_slot_calc_feedback(esfm_slot *slot)
 		{
 			regressed_phase = (uint19)((uint32)slot->in.phase_acc - iter_counter * phase_offset) & ((1 << 19) - 1);
 			phase = (int16)(regressed_phase >> 9);
-			/*
-			 * TODO: Figure out why the feedback formula sounds inaccurate
-			 * Stuff I've tried (Kagamiin~):
-			 * - phase += in1 >> 1; -- I mean, I had to try, right?
-			 * - phase += (in1 + in2 + in3 + in4) >> 3; -- sounds really muffled
-			 * - phase += (in1 + in2 + in3) / 6; -- sounds muffled
-			 * - phase += (in1 + 2*in2 + in3) >> 3; -- sounds really cool but quite wrong
-			 * - phase += (3*in1 + 2*in2 + in3) / 12; -- sounds surprisingly muffled lol
-			 *
-			 * As far as it goes, sticking to the patent description has given the closest results, even
-			 * though they don't sound too accurate either. Changing the iteration count may help, but I've
-			 * found that while it changes the brightness, it doesn't really change the timbre enough to
-			 * match how the real card sounds... so something's really fishy amidst this.
-			 *
-			 * Maybe the ESFM cards use a different feedback architecture to what's described in the
-			 * patent? (oh no)
-			 */
-			phase += (in1 + in2) >> 2;
+			phase += (in1 + in2) >> (9 - slot->mod_in_level);
 			wave_out = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
 			in2 = in1;
-			in1 = wave_out >> (7 - slot->mod_in_level);
+			in1 = wave_out;
 		}
 
-		slot->in.feedback_buf = wave_out >> (1 + (!chip->native_mode) * (7 - slot->mod_in_level));
+		slot->in.output = wave_out;
 	}
 }
 
