@@ -25,10 +25,40 @@
  * along with ESFMu. If not, see <https://www.gnu.org/licenses/>.
  */
 
+/*
+ * ESFMu wouldn't have been possible without the hard work and dedication of
+ * the retro computer hardware research and preservation community.
+ *
+ * We'd like to thank:
+ *  - Nuke.YKT
+ *        Developer of Nuked OPL3, which was the basis for ESFMu's code and
+ *        also a great learning resource for Kagamiin~.
+ *        Nuke.YKT also gives shoutouts on behalf of Nuked OPL3 to:
+ *        - MAME Development Team(Jarek Burczynski, Tatsuyuki Satoh):
+ *              Feedback and Rhythm part calculation information.
+ *        - forums.submarine.org.uk(carbon14, opl3):
+ *              Tremolo and phase generator calculation information.
+ *        - OPLx decapsulated(Matthew Gambrell, Olli Niemitalo):
+ *              OPL2 ROMs.
+ *        - siliconpr0n.org(John McMaster, digshadow):
+ *              YMF262 and VRC VII decaps and die shots.
+ * - rainwarrior
+ *       For performing the initial research on ESFM drivers and documenting
+ *       ESS's patent on native mode operator organization
+ * - jwt27
+ *       For kickstarting the ESFM research project and compiling rainwarrior's
+ *       findings and more in an accessible document ("ESFM Demystified")
+ * - pachuco/CatButts
+ *       For documenting ESS's patent on ESFM's feedback implementation, which
+ *       was vital in getting ESFMu's sound output to be accurate
+ * - And everybody who helped out with real hardware testing
+ */
+
 #include "esfm.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdbool.h>
 
 
 /*
