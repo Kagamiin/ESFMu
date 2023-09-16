@@ -636,17 +636,10 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 				break;
 			case 0x05:
 				chip->emu_newmode = data & 0x01;
-				if (chip->native_mode != ((data & 0x80) != 0))
+				if ((data & 0x80) != 0)
 				{
-					chip->native_mode = (data & 0x80) != 0;
-					if (chip->native_mode)
-					{
-						ESFM_emu_to_native_switch(chip);
-					}
-					else
-					{
-						ESFM_native_to_emu_switch(chip);
-					}
+					chip->native_mode = 1;
+					ESFM_emu_to_native_switch(chip);
 				}
 				break;
 			case 0x08:
@@ -816,6 +809,7 @@ ESFM_write_port (esfm_chip *chip, uint8_t offset, uint8_t data)
 			case 0:
 				chip->native_mode = 0;
 				ESFM_native_to_emu_switch(chip);
+				chip->addr_latch = data;
 				break;
 			case 1:
 				ESFM_write_reg_native(chip, chip->addr_latch, data);
@@ -834,17 +828,13 @@ ESFM_write_port (esfm_chip *chip, uint8_t offset, uint8_t data)
 		switch(offset)
 		{
 			case 0:
-				chip->addr_latch = chip->addr_latch & 0xff;
-				chip->addr_latch |= (uint16)data << 8;
+				chip->addr_latch = data;
 				break;
-			case 1:
-				ESFM_write_reg_emu(chip, chip->addr_latch >> 8, data);
+			case 1: case 3:
+				ESFM_write_reg_emu(chip, chip->addr_latch, data);
 				break;
 			case 2:
-				chip->addr_latch = (chip->addr_latch & 0xff00) | data;
-				break;
-			case 3:
-				ESFM_write_reg_emu(chip, (chip->addr_latch & 0xff) | 0x100, data);
+				chip->addr_latch = (uint16)data | 0x100;
 				break;
 		}
 	}
@@ -860,6 +850,7 @@ ESFM_read_port (esfm_chip *chip, uint8_t offset)
 		switch(offset)
 		{
 			case 0:
+				// TODO: actually implement timer count, trigger and reset
 				data |= (chip->irq_bit != 0) << 7;
 				data |= (chip->timer_overflow[0] != 0) << 6;
 				data |= (chip->timer_overflow[1] != 0) << 5;
@@ -867,6 +858,8 @@ ESFM_read_port (esfm_chip *chip, uint8_t offset)
 			case 1:
 				data = ESFM_readback_reg_native(chip, chip->addr_latch);
 				break;
+			// TODO: verify what the ESFM chip actually returns when reading
+			// from the other address ports
 		}
 	}
 	else
