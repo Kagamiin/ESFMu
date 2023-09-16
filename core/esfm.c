@@ -801,7 +801,8 @@ ESFM_slot_generate_emu(esfm_slot *slot)
 		&& slot->channel->channel_idx >= 6 && slot->channel->channel_idx < 9;
 	int16 phase = slot->in.phase_out;
 	phase += *slot->in.mod_input & slot->in.emu_mod_enable;
-	if (slot->slot_idx > 0 || slot->mod_in_level == 0 || rhythm_slot_double_volume)
+	if (slot->slot_idx > 0 || slot->in.mod_input != &slot->in.feedback_buf
+		|| slot->mod_in_level == 0 || rhythm_slot_double_volume)
 	{
 		slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
 	}
@@ -886,7 +887,10 @@ ESFM_process_channel_emu(esfm_channel *channel)
 {
 	int slot_idx;
 	channel->output[0] = channel->output[1] = 0;
-	ESFM_slot_calc_feedback(&channel->slots[0]);
+	if (channel->slots[0].in.mod_input == &channel->slots[0].in.feedback_buf)
+	{
+		ESFM_slot_calc_feedback(&channel->slots[0]);
+	}
 	for (slot_idx = 0; slot_idx < 2; slot_idx++)
 	{
 		esfm_slot *slot = &channel->slots[slot_idx];
