@@ -1,6 +1,6 @@
 /*
  * ESFMu: emulator for the ESS "ESFM" enhanced OPL3 clone
- * Copyright (C) 2023 Kagamiin~ and contributors
+ * Copyright (C) 2023 Kagamiin~
  *
  * ESFMu is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as

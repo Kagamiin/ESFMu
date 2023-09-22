@@ -1,10 +1,6 @@
 /*
  * ESFMu: emulator for the ESS "ESFM" enhanced OPL3 clone
- * Copyright (C) 2023 Kagamiin~ and contributors
- *
- * ---------------------------------------------------------------------------
- * esfm_register.c - functions for handling register and port writes and reads
- * ---------------------------------------------------------------------------
+ * Copyright (C) 2023 Kagamiin~
  *
  * This file includes code and data from the Nuked OPL3 project, copyright (C)
  * 2013-2023 Nuke.YKT. Its usage, modification and redistribution is allowed
@@ -294,46 +290,46 @@ ESFM_slot_readback (esfm_slot *slot, uint8_t register_idx)
 	uint8_t data = 0;
 	switch (register_idx & 0x07)
 	{
-		case 0x00:
-			data |= (slot->tremolo_en != 0) << 7;
-			data |= (slot->vibrato_en != 0) << 6;
-			data |= (slot->env_sustaining != 0) << 5;
-			data |= (slot->vibrato_en != 0) << 4;
-			data |= slot->mult & 0x0f;
-			break;
-		case 0x01:
-			data |= slot->ksl << 6;
-			data |= slot->t_level & 0x3f;
-			break;
-		case 0x02:
-			data |= slot->attack_rate << 4;
-			data |= slot->decay_rate & 0x0f;
-			break;
-		case 0x03:
-			data |= slot->sustain_lvl << 4;
-			data |= slot->release_rate & 0x0f;
-			break;
-		case 0x04:
-			data = slot->f_num & 0xff;
-			break;
-		case 0x05:
-			data |= slot->env_delay << 5;
-			data |= (slot->block & 0x07) << 2;
-			data |= (slot->f_num >> 8) & 0x03;
-			break;
-		case 0x06:
-			data |= (slot->tremolo_deep != 0) << 7;
-			data |= (slot->vibrato_deep != 0) << 6;
-			data |= (slot->out_enable[0] != 0) << 5;
-			data |= (slot->out_enable[1] != 0) << 4;
-			data |= (slot->mod_in_level & 0x07) << 1;
-			data |= slot->emu_connection_typ & 0x01;
-			break;
-		case 0x07:
-			data |= slot->output_level << 5;
-			data |= (slot->rhy_noise & 0x03) << 3;
-			data |= slot->waveform & 0x07;
-			break;
+	case 0x00:
+		data |= (slot->tremolo_en != 0) << 7;
+		data |= (slot->vibrato_en != 0) << 6;
+		data |= (slot->env_sustaining != 0) << 5;
+		data |= (slot->vibrato_en != 0) << 4;
+		data |= slot->mult & 0x0f;
+		break;
+	case 0x01:
+		data |= slot->ksl << 6;
+		data |= slot->t_level & 0x3f;
+		break;
+	case 0x02:
+		data |= slot->attack_rate << 4;
+		data |= slot->decay_rate & 0x0f;
+		break;
+	case 0x03:
+		data |= slot->sustain_lvl << 4;
+		data |= slot->release_rate & 0x0f;
+		break;
+	case 0x04:
+		data = slot->f_num & 0xff;
+		break;
+	case 0x05:
+		data |= slot->env_delay << 5;
+		data |= (slot->block & 0x07) << 2;
+		data |= (slot->f_num >> 8) & 0x03;
+		break;
+	case 0x06:
+		data |= (slot->tremolo_deep != 0) << 7;
+		data |= (slot->vibrato_deep != 0) << 6;
+		data |= (slot->out_enable[0] != 0) << 5;
+		data |= (slot->out_enable[1] != 0) << 4;
+		data |= (slot->mod_in_level & 0x07) << 1;
+		data |= slot->emu_connection_typ & 0x01;
+		break;
+	case 0x07:
+		data |= slot->output_level << 5;
+		data |= (slot->rhy_noise & 0x03) << 3;
+		data |= slot->waveform & 0x07;
+		break;
 	}
 	return data;
 }
@@ -344,50 +340,50 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 {
 	switch (register_idx & 0x07)
 	{
-		case 0x00:
-			slot->tremolo_en = (data & 0x80) != 0;
-			slot->vibrato_en = (data & 0x40) != 0;
-			slot->env_sustaining = (data & 0x20) != 0;
-			slot->ksr = (data & 0x10) != 0;
-			slot->mult = data & 0x0f;
-			break;
-		case 0x01:
-			slot->ksl = data >> 6;
-			slot->t_level = data & 0x3f;
-			ESFM_slot_update_keyscale(slot);
-			break;
-		case 0x02:
-			slot->attack_rate = data >> 4;
-			slot->decay_rate = data & 0x0f;
-			break;
-		case 0x03:
-			slot->sustain_lvl = data >> 4;
-			slot->release_rate = data & 0x0f;
-			break;
-		case 0x04:
-			slot->f_num = (slot->f_num & 0x300) | data;
-			ESFM_slot_update_keyscale(slot);
-			break;
-		case 0x05:
-			slot->env_delay = data >> 5;
-			slot->emu_key_on = (data >> 5) & 0x01;
-			slot->block = (data >> 2) & 0x07;
-			slot->f_num = (slot->f_num & 0xff) | ((data & 0x03) << 8);
-			ESFM_slot_update_keyscale(slot);
-			break;
-		case 0x06:
-			slot->tremolo_deep = (data & 0x80) != 0;
-			slot->vibrato_deep = (data & 0x40) != 0;
-			slot->out_enable[0] = (data & 0x20) ? ~((int13) 0) : 0;
-			slot->out_enable[1] = (data & 0x10) ? ~((int13) 0) : 0;
-			slot->mod_in_level = (data >> 1) & 0x07;
-			slot->emu_connection_typ = data & 0x01;
-			break;
-		case 0x07:
-			slot->output_level = data >> 5;
-			slot->rhy_noise = (data >> 3) & 0x03;
-			slot->waveform = data & 0x07;
-			break;
+	case 0x00:
+		slot->tremolo_en = (data & 0x80) != 0;
+		slot->vibrato_en = (data & 0x40) != 0;
+		slot->env_sustaining = (data & 0x20) != 0;
+		slot->ksr = (data & 0x10) != 0;
+		slot->mult = data & 0x0f;
+		break;
+	case 0x01:
+		slot->ksl = data >> 6;
+		slot->t_level = data & 0x3f;
+		ESFM_slot_update_keyscale(slot);
+		break;
+	case 0x02:
+		slot->attack_rate = data >> 4;
+		slot->decay_rate = data & 0x0f;
+		break;
+	case 0x03:
+		slot->sustain_lvl = data >> 4;
+		slot->release_rate = data & 0x0f;
+		break;
+	case 0x04:
+		slot->f_num = (slot->f_num & 0x300) | data;
+		ESFM_slot_update_keyscale(slot);
+		break;
+	case 0x05:
+		slot->env_delay = data >> 5;
+		slot->emu_key_on = (data >> 5) & 0x01;
+		slot->block = (data >> 2) & 0x07;
+		slot->f_num = (slot->f_num & 0xff) | ((data & 0x03) << 8);
+		ESFM_slot_update_keyscale(slot);
+		break;
+	case 0x06:
+		slot->tremolo_deep = (data & 0x80) != 0;
+		slot->vibrato_deep = (data & 0x40) != 0;
+		slot->out_enable[0] = (data & 0x20) ? ~((int13) 0) : 0;
+		slot->out_enable[1] = (data & 0x10) ? ~((int13) 0) : 0;
+		slot->mod_in_level = (data >> 1) & 0x07;
+		slot->emu_connection_typ = data & 0x01;
+		break;
+	case 0x07:
+		slot->output_level = data >> 5;
+		slot->rhy_noise = (data >> 3) & 0x03;
+		slot->waveform = data & 0x07;
+		break;
 	}
 }
 
@@ -445,38 +441,38 @@ ESFM_write_reg_native (esfm_chip *chip, uint16_t address, uint8_t data)
 	{
 		switch (address & 0x5ff)
 		{
-			case TIMER1_REG:
-				chip->timer_reload[0] = data;
-				break;
-			case TIMER2_REG:
-				chip->timer_reload[1] = data;
-				break;
-			case TIMER_SETUP_REG:
-				if (data & 0x80)
-				{
-					chip->timer_overflow[0] = 0;
-					chip->timer_overflow[1] = 0;
-					chip->irq_bit = 0;
-				}
-				chip->timer_enable[0] = (data & 0x01) != 0;
-				chip->timer_enable[1] = (data & 0x02) != 0;
-				chip->timer_mask[0] = (data & 0x20) != 0;
-				chip->timer_mask[1] = (data & 0x40) != 0;
-				break;
-			case CONFIG_REG:
-				chip->keyscale_mode = (data & 0x40) != 0;
-				break;
-			case BASSDRUM_REG:
-				chip->emu_rhy_mode_flags = data & 0x3f;
-				chip->emu_vibrato_deep = (data & 0x40) != 0;
-				chip->emu_tremolo_deep = (data & 0x80) != 0;
-				break;
-			case TEST_REG:
-				chip->test_bit_eg_halt = (data & 0x01) | ((data & 0x20) != 0);
-				chip->test_bit_distort = (data & 0x02) != 0;
-				chip->test_bit_attenuate = (data & 0x10) != 0;
-				chip->test_bit_phase_stop_reset = (data & 0x40) != 0;
-				break;
+		case TIMER1_REG:
+			chip->timer_reload[0] = data;
+			break;
+		case TIMER2_REG:
+			chip->timer_reload[1] = data;
+			break;
+		case TIMER_SETUP_REG:
+			if (data & 0x80)
+			{
+				chip->timer_overflow[0] = 0;
+				chip->timer_overflow[1] = 0;
+				chip->irq_bit = 0;
+			}
+			chip->timer_enable[0] = (data & 0x01) != 0;
+			chip->timer_enable[1] = (data & 0x02) != 0;
+			chip->timer_mask[0] = (data & 0x20) != 0;
+			chip->timer_mask[1] = (data & 0x40) != 0;
+			break;
+		case CONFIG_REG:
+			chip->keyscale_mode = (data & 0x40) != 0;
+			break;
+		case BASSDRUM_REG:
+			chip->emu_rhy_mode_flags = data & 0x3f;
+			chip->emu_vibrato_deep = (data & 0x40) != 0;
+			chip->emu_tremolo_deep = (data & 0x80) != 0;
+			break;
+		case TEST_REG:
+			chip->test_bit_eg_halt = (data & 0x01) | ((data & 0x20) != 0);
+			chip->test_bit_distort = (data & 0x02) != 0;
+			chip->test_bit_attenuate = (data & 0x10) != 0;
+			chip->test_bit_phase_stop_reset = (data & 0x40) != 0;
+			break;
 		}
 	}
 }
@@ -528,36 +524,36 @@ ESFM_readback_reg_native (esfm_chip *chip, uint16_t address)
 	{
 		switch (address & 0x5ff)
 		{
-			case TIMER1_REG:
-				data = chip->timer_reload[0];
-				break;
-			case TIMER2_REG:
-				data = chip->timer_reload[1];
-				break;
-			case TIMER_SETUP_REG:
-				data |= chip->timer_enable[0] != 0;
-				data |= (chip->timer_enable[1] != 0) << 1;
-				data |= (chip->timer_mask[0] != 0) << 5;
-				data |= (chip->timer_mask[1] != 0) << 6;
-				break;
-			case CONFIG_REG:
-				data |= (chip->keyscale_mode != 0) << 6;
-				break;
-			case BASSDRUM_REG:
-				data |= chip->emu_rhy_mode_flags;
-				data |= chip->emu_vibrato_deep << 6;
-				data |= chip->emu_tremolo_deep << 7;
-				break;
-			case TEST_REG:
-				data |= chip->test_bit_eg_halt != 0;
-				data |= (chip->test_bit_distort != 0) << 1;
-				data |= (chip->test_bit_attenuate != 0) << 4;
-				data |= (chip->test_bit_eg_halt != 0) << 5;
-				data |= (chip->test_bit_phase_stop_reset != 0) << 6;
-				break;
-			case NATIVE_MODE_REG:
-				data |= (chip->native_mode != 0) << 7;
-				break;
+		case TIMER1_REG:
+			data = chip->timer_reload[0];
+			break;
+		case TIMER2_REG:
+			data = chip->timer_reload[1];
+			break;
+		case TIMER_SETUP_REG:
+			data |= chip->timer_enable[0] != 0;
+			data |= (chip->timer_enable[1] != 0) << 1;
+			data |= (chip->timer_mask[0] != 0) << 5;
+			data |= (chip->timer_mask[1] != 0) << 6;
+			break;
+		case CONFIG_REG:
+			data |= (chip->keyscale_mode != 0) << 6;
+			break;
+		case BASSDRUM_REG:
+			data |= chip->emu_rhy_mode_flags;
+			data |= chip->emu_vibrato_deep << 6;
+			data |= chip->emu_tremolo_deep << 7;
+			break;
+		case TEST_REG:
+			data |= chip->test_bit_eg_halt != 0;
+			data |= (chip->test_bit_distort != 0) << 1;
+			data |= (chip->test_bit_attenuate != 0) << 4;
+			data |= (chip->test_bit_eg_halt != 0) << 5;
+			data |= (chip->test_bit_phase_stop_reset != 0) << 6;
+			break;
+		case NATIVE_MODE_REG:
+			data |= (chip->native_mode != 0) << 7;
+			break;
 		}
 	}
 	return data;
@@ -806,36 +802,36 @@ ESFM_write_port (esfm_chip *chip, uint8_t offset, uint8_t data)
 	{
 		switch(offset)
 		{
-			case 0:
-				chip->native_mode = 0;
-				ESFM_native_to_emu_switch(chip);
-				chip->addr_latch = data;
-				break;
-			case 1:
-				ESFM_write_reg_native(chip, chip->addr_latch, data);
-				break;
-			case 2:
-				chip->addr_latch = (chip->addr_latch & 0xff00) | data;
-				break;
-			case 3:
-				chip->addr_latch = chip->addr_latch & 0xff;
-				chip->addr_latch |= (uint16)data << 8;
-				break;
+		case 0:
+			chip->native_mode = 0;
+			ESFM_native_to_emu_switch(chip);
+			chip->addr_latch = data;
+			break;
+		case 1:
+			ESFM_write_reg_native(chip, chip->addr_latch, data);
+			break;
+		case 2:
+			chip->addr_latch = (chip->addr_latch & 0xff00) | data;
+			break;
+		case 3:
+			chip->addr_latch = chip->addr_latch & 0xff;
+			chip->addr_latch |= (uint16)data << 8;
+			break;
 		}
 	}
 	else
 	{
 		switch(offset)
 		{
-			case 0:
-				chip->addr_latch = data;
-				break;
-			case 1: case 3:
-				ESFM_write_reg_emu(chip, chip->addr_latch, data);
-				break;
-			case 2:
-				chip->addr_latch = (uint16)data | 0x100;
-				break;
+		case 0:
+			chip->addr_latch = data;
+			break;
+		case 1: case 3:
+			ESFM_write_reg_emu(chip, chip->addr_latch, data);
+			break;
+		case 2:
+			chip->addr_latch = (uint16)data | 0x100;
+			break;
 		}
 	}
 }
@@ -849,28 +845,37 @@ ESFM_read_port (esfm_chip *chip, uint8_t offset)
 	{
 		switch(offset)
 		{
-			case 0:
-				// TODO: actually implement timer count, trigger and reset
-				data |= (chip->irq_bit != 0) << 7;
-				data |= (chip->timer_overflow[0] != 0) << 6;
-				data |= (chip->timer_overflow[1] != 0) << 5;
-				break;
-			case 1:
-				data = ESFM_readback_reg_native(chip, chip->addr_latch);
-				break;
-			// TODO: verify what the ESFM chip actually returns when reading
-			// from the other address ports
+		case 0:
+			// TODO: actually implement timer count, trigger and reset
+			data |= (chip->irq_bit != 0) << 7;
+			data |= (chip->timer_overflow[0] != 0) << 6;
+			data |= (chip->timer_overflow[1] != 0) << 5;
+			break;
+		case 1:
+			data = ESFM_readback_reg_native(chip, chip->addr_latch);
+			break;
+		// TODO: verify what the ESFM chip actually returns when reading
+		// from the other address ports
 		}
 	}
 	else
 	{
 		switch(offset)
 		{
-			case 0:
-				data |= (chip->irq_bit != 0) << 7;
-				data |= (chip->timer_overflow[0] != 0) << 6;
-				data |= (chip->timer_overflow[1] != 0) << 5;
-				break;
+		case 0:
+			data |= (chip->irq_bit != 0) << 7;
+			data |= (chip->timer_overflow[0] != 0) << 6;
+			data |= (chip->timer_overflow[1] != 0) << 5;
+			break;
+		case 1:
+			data = 0;
+			break;
+		case 2: case 3:
+			// This matches OPL3 behavior.
+			// TODO: verify what the ESFM chip actually returns when reading
+			// from address ports in emulation mode
+			data = 0xff;
+			break;
 		}
 	}
 	return data;

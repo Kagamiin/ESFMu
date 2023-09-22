@@ -1,6 +1,6 @@
 /*
  * ESFMu: emulator for the ESS "ESFM" enhanced OPL3 clone
- * Copyright (C) 2023 Kagamiin~ and contributors
+ * Copyright (C) 2023 Kagamiin~
  *
  * This file includes code and data from the Nuked OPL3 project, copyright (C)
  * 2013-2023 Nuke.YKT. Its usage, modification and redistribution is allowed
