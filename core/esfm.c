@@ -779,10 +779,7 @@ ESFM_slot_generate(esfm_slot *slot)
 	{
 		phase += *slot->in.mod_input >> (7 - slot->mod_in_level);
 	}
-	if (slot->slot_idx > 0 || slot->mod_in_level == 0)
-	{
-		slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
-	}
+	slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
 	if (slot->output_level)
 	{
 		int13 output_value = slot->in.output >> (7 - slot->output_level);
@@ -796,29 +793,25 @@ static void
 ESFM_slot_generate_emu(esfm_slot *slot)
 {
 	esfm_chip *chip = slot->chip;
-	envelope_sinfunc wavegen = envelope_sin[slot->waveform & (0x03 | (0x02 << (chip->emu_newmode != 0)))];
+	envelope_sinfunc wavegen = envelope_sin[
+		slot->waveform & (chip->emu_newmode != 0 ? 0x07 : 0x03)];
 	bool rhythm_slot_double_volume = (slot->chip->emu_rhy_mode_flags & 0x20) != 0
 		&& slot->channel->channel_idx >= 6 && slot->channel->channel_idx < 9;
 	int16 phase = slot->in.phase_out;
+	int14 output_value;
+
 	phase += *slot->in.mod_input & slot->in.emu_mod_enable;
-	if (slot->slot_idx > 0 || slot->in.mod_input != &slot->in.feedback_buf
-		|| slot->mod_in_level == 0 || rhythm_slot_double_volume)
-	{
-		slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
-	}
+	slot->in.output = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
+	output_value = (slot->in.output & slot->in.emu_output_enable) << rhythm_slot_double_volume;
 	if (chip->emu_newmode)
 	{
-		slot->channel->output[0] += (slot->in.output & slot->channel->slots[0].out_enable[0]
-			& slot->in.emu_output_enable) << rhythm_slot_double_volume;
-		slot->channel->output[1] += (slot->in.output & slot->channel->slots[0].out_enable[1]
-			& slot->in.emu_output_enable) << rhythm_slot_double_volume;
+		slot->channel->output[0] += output_value & slot->channel->slots[0].out_enable[0];
+		slot->channel->output[1] += output_value & slot->channel->slots[0].out_enable[1];
 	}
 	else
 	{
-		slot->channel->output[0] += (slot->in.output & slot->in.emu_output_enable)
-			<< rhythm_slot_double_volume;
-		slot->channel->output[1] += (slot->in.output & slot->in.emu_output_enable)
-			<< rhythm_slot_double_volume;
+		slot->channel->output[0] += output_value;
+		slot->channel->output[1] += output_value;
 	}
 }
 
@@ -831,7 +824,7 @@ ESFM_slot_calc_feedback(esfm_slot *slot)
 	uint3 block;
 	uint10 f_num;
 	int13 in1 = 0, in2 = 0, wave_out;
-	int16 phase;
+	int16 phase, phase_feedback;
 	uint19 regressed_phase;
 	int iter_counter;
 	envelope_sinfunc wavegen;
@@ -855,13 +848,27 @@ ESFM_slot_calc_feedback(esfm_slot *slot)
 		{
 			regressed_phase = (uint19)((uint32)slot->in.phase_acc - iter_counter * phase_offset) & ((1 << 19) - 1);
 			phase = (int16)(regressed_phase >> 9);
-			phase += (in1 + in2) >> (9 - slot->mod_in_level);
+			phase_feedback = (in1 + in2) >> 2;
+			phase += phase_feedback >> (7 - slot->mod_in_level);
 			wave_out = wavegen((uint10)(phase & 0x3ff), slot->in.eg_output);
 			in2 = in1;
 			in1 = wave_out;
 		}
 
-		slot->in.output = wave_out;
+		// TODO: Figure out - is this how the ESFM chip does it, like the
+		// patent literally says? (it's really hacky...)
+		//   slot->in.output = wave_out;
+
+		// This would be the more canonical way to do it, reusing the rest of
+		// the synthesis pipeline to finish the calculation:
+		if (chip->native_mode)
+		{
+			slot->in.feedback_buf = phase_feedback;
+		}
+		else
+		{
+			slot->in.feedback_buf = phase_feedback >> (7 - slot->mod_in_level);
+		}
 	}
 }
 
@@ -871,14 +878,21 @@ ESFM_process_channel(esfm_channel *channel)
 {
 	int slot_idx;
 	channel->output[0] = channel->output[1] = 0;
-	ESFM_slot_calc_feedback(&channel->slots[0]);
 	for (slot_idx = 0; slot_idx < 4; slot_idx++)
 	{
 		esfm_slot *slot = &channel->slots[slot_idx];
 		ESFM_envelope_calc(slot);
 		ESFM_phase_generate(slot);
-		ESFM_slot_generate(slot);
+		if(slot_idx > 0)
+		{
+			ESFM_slot_generate(slot);
+		}
 	}
+	// ESFM feedback calculation takes a large number of clock cycles, so
+	// defer slot 0 generation to the end
+	// TODO: verify this behavior on real hardware
+	ESFM_slot_calc_feedback(&channel->slots[0]);
+	ESFM_slot_generate(&channel->slots[0]);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -887,17 +901,24 @@ ESFM_process_channel_emu(esfm_channel *channel)
 {
 	int slot_idx;
 	channel->output[0] = channel->output[1] = 0;
-	if (channel->slots[0].in.mod_input == &channel->slots[0].in.feedback_buf)
-	{
-		ESFM_slot_calc_feedback(&channel->slots[0]);
-	}
 	for (slot_idx = 0; slot_idx < 2; slot_idx++)
 	{
 		esfm_slot *slot = &channel->slots[slot_idx];
 		ESFM_envelope_calc(slot);
 		ESFM_phase_generate_emu(slot);
-		ESFM_slot_generate_emu(slot);
+		if(slot_idx > 0)
+		{
+			ESFM_slot_generate_emu(slot);
+		}
 	}
+	// ESFM feedback calculation takes a large number of clock cycles, so
+	// defer slot 0 generation to the end
+	// TODO: verify this behavior on real hardware
+	if (channel->slots[0].in.mod_input == &channel->slots[0].in.feedback_buf)
+	{
+		ESFM_slot_calc_feedback(&channel->slots[0]);
+	}
+	ESFM_slot_generate_emu(&channel->slots[0]);
 }
 
 /* ------------------------------------------------------------------------- */

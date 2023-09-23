@@ -96,6 +96,7 @@ typedef uint_fast32_t uint32;
 typedef uint_fast64_t uint36;
 
 typedef int_fast16_t int13;
+typedef int_fast16_t int14;
 typedef int_fast16_t int16;
 typedef int_fast32_t int32;
 
@@ -118,6 +119,7 @@ typedef uint32_t uint32;
 typedef uint64_t uint36;
 
 typedef int16_t int13;
+typedef int16_t int14;
 typedef int16_t int16;
 typedef int32_t int32;
 
@@ -157,7 +159,6 @@ typedef struct _esfm_slot_internal
 	uint4 keyscale;
 
 	int13 output;
-	int13 prev_output;
 	int13 emu_output_enable;
 	int13 emu_mod_enable;
 	int13 feedback_buf;
