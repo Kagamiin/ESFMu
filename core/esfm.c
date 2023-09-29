@@ -25,10 +25,10 @@
  * ESFMu wouldn't have been possible without the hard work and dedication of
  * the retro computer hardware research and preservation community.
  *
- * We'd like to thank:
+ * I'd like to thank:
  *  - Nuke.YKT
  *        Developer of Nuked OPL3, which was the basis for ESFMu's code and
- *        also a great learning resource for Kagamiin~.
+ *        also a great learning resource on Yamaha FM synthesis for myself.
  *        Nuke.YKT also gives shoutouts on behalf of Nuked OPL3 to:
  *        - MAME Development Team(Jarek Burczynski, Tatsuyuki Satoh):
  *              Feedback and Rhythm part calculation information.
@@ -40,13 +40,13 @@
  *              YMF262 and VRC VII decaps and die shots.
  * - rainwarrior
  *       For performing the initial research on ESFM drivers and documenting
- *       ESS's patent on native mode operator organization
+ *       ESS's patent on native mode operator organization.
  * - jwt27
  *       For kickstarting the ESFM research project and compiling rainwarrior's
- *       findings and more in an accessible document ("ESFM Demystified")
+ *       findings and more in an accessible document ("ESFM Demystified").
  * - pachuco/CatButts
  *       For documenting ESS's patent on ESFM's feedback implementation, which
- *       was vital in getting ESFMu's sound output to be accurate
+ *       was vital in getting ESFMu's sound output to be accurate.
  * - And everybody who helped out with real hardware testing
  */
 

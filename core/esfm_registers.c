@@ -25,10 +25,10 @@
  * ESFMu wouldn't have been possible without the hard work and dedication of
  * the retro computer hardware research and preservation community.
  *
- * We'd like to thank:
+ * I'd like to thank:
  *  - Nuke.YKT
  *        Developer of Nuked OPL3, which was the basis for ESFMu's code and
- *        also a great learning resource for Kagamiin~.
+ *        also a great learning resource on Yamaha FM synthesis for myself.
  *        Nuke.YKT also gives shoutouts on behalf of Nuked OPL3 to:
  *        - MAME Development Team(Jarek Burczynski, Tatsuyuki Satoh):
  *              Feedback and Rhythm part calculation information.
@@ -40,13 +40,13 @@
  *              YMF262 and VRC VII decaps and die shots.
  * - rainwarrior
  *       For performing the initial research on ESFM drivers and documenting
- *       ESS's patent on native mode operator organization
+ *       ESS's patent on native mode operator organization.
  * - jwt27
  *       For kickstarting the ESFM research project and compiling rainwarrior's
- *       findings and more in an accessible document ("ESFM Demystified")
+ *       findings and more in an accessible document ("ESFM Demystified").
  * - pachuco/CatButts
  *       For documenting ESS's patent on ESFM's feedback implementation, which
- *       was vital in getting ESFMu's sound output to be accurate
+ *       was vital in getting ESFMu's sound output to be accurate.
  * - And everybody who helped out with real hardware testing
  */
 
@@ -394,12 +394,14 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 #define CONFIG_REG (0x408)
 #define BASSDRUM_REG (0x4bd)
 #define TEST_REG (0x501)
+#define FOUROP_CONN_REG (0x504)
 #define NATIVE_MODE_REG (0x505)
 
 /* ------------------------------------------------------------------------- */
 static void
 ESFM_write_reg_native (esfm_chip *chip, uint16_t address, uint8_t data)
 {
+    int i;
 	address = address & 0x7ff;
 
 	if (address < KEY_ON_REGS_START)
@@ -467,6 +469,13 @@ ESFM_write_reg_native (esfm_chip *chip, uint16_t address, uint8_t data)
 			chip->emu_vibrato_deep = (data & 0x40) != 0;
 			chip->emu_tremolo_deep = (data & 0x80) != 0;
 			break;
+		case FOUROP_CONN_REG:
+			for (i = 0; i < 3; i++)
+			{
+				chip->channels[i].emu_mode_4op_enable = (data >> i) & 0x01;
+				chip->channels[i + 9].emu_mode_4op_enable = (data >> (i + 3)) & 0x01;
+			}
+			break;
 		case TEST_REG:
 			chip->test_bit_eg_halt = (data & 0x01) | ((data & 0x20) != 0);
 			chip->test_bit_distort = (data & 0x02) != 0;
@@ -481,6 +490,7 @@ ESFM_write_reg_native (esfm_chip *chip, uint16_t address, uint8_t data)
 static uint8_t
 ESFM_readback_reg_native (esfm_chip *chip, uint16_t address)
 {
+	int i;
 	uint8_t data = 0;
 	address = address & 0x7ff;
 
@@ -550,6 +560,13 @@ ESFM_readback_reg_native (esfm_chip *chip, uint16_t address)
 			data |= (chip->test_bit_attenuate != 0) << 4;
 			data |= (chip->test_bit_eg_halt != 0) << 5;
 			data |= (chip->test_bit_phase_stop_reset != 0) << 6;
+			break;
+		case FOUROP_CONN_REG:
+			for (i = 0; i < 3; i++)
+			{
+				data |= (chip->channels[i].emu_mode_4op_enable != 0) << i;
+				data |= (chip->channels[i + 9].emu_mode_4op_enable != 0) << (i + 3);
+			}
 			break;
 		case NATIVE_MODE_REG:
 			data |= (chip->native_mode != 0) << 7;
