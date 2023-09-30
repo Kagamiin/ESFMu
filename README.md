@@ -42,13 +42,17 @@ If you're familiar with **Nuked OPL3**, you'll find many similarities in the fun
 
 Just like **Nuked OPL3**, **ESFMu** offers buffered register writes. However, it offers them in two flavors: "legacy" and fast.
 
-The fast buffered register writes (`ESFM_write_reg_buffered_fast`) are recommended, since they offer minimal latency which is close to the behavior you'd get with the actual ESS drivers on Windows. The "legacy" buffered register writes are only recommended for specific cases, such as programs seeking for a shortcut to emulate the write delays from some sound drivers.
+The fast buffered register writes (`ESFM_write_reg_buffered_fast`) are recommended, since they offer minimal latency which is close to the behavior you'd get with the actual ESS drivers on Windows.
+
+The "legacy" buffered register writes are only recommended for specific cases, such as programs seeking for a shortcut to emulate the write delays from some sound drivers.
 
 ### Port-level access
 
 Unlike **Nuked OPL3**, **ESFMu** actually allows port-level access to the ESFM interface. This is relevant because the ESFM port interface is actually modal, meaning that its behavior changes depending on whether the chip is set to emulation (OPL3 compatibility) mode or native (ESFM) mode.
 
-Using port-level access allows for applications to not need to keep track of whether the chip is in native mode or not, nor to perform the port handling logic on their side. Applications that use the register-level access, on the other hand, need to take care to either stick to only one of the operating modes (either native or emulation), or handle the port mapping logic on their own side.
+Using port-level access allows for applications to not need to keep track of whether the chip is in native mode or not, nor to perform the port handling logic on their side.
+
+Applications that use the register-level access, on the other hand, need to take care to either stick to only one of the operating modes (either native or emulation), or handle the port mapping logic on their own side.
 
 ### Register readback
 
