@@ -997,14 +997,84 @@ ESFM_update_timers(esfm_chip *chip)
 	chip->eg_tick ^= 1;
 }
 
+#define KEY_ON_REGS_START (18 * 4 * 8)
+/* ------------------------------------------------------------------------- */
+int
+ESFM_reg_write_chan_idx(esfm_chip *chip, uint16_t reg)
+{
+	int which_reg = -1;
+	if (chip->native_mode)
+	{
+		bool is_key_on_reg = reg >= KEY_ON_REGS_START && reg < (KEY_ON_REGS_START + 20);
+		if (is_key_on_reg)
+		{
+			which_reg = reg - KEY_ON_REGS_START;
+		}
+	}
+	else
+	{
+		uint8_t reg_low = reg & 0xff;
+		bool high = reg & 0x100;
+		bool is_key_on_reg = reg_low >= 0xb0 && reg_low < 0xb9;
+		if (is_key_on_reg)
+		{
+			which_reg = (reg_low & 0x0f) + high * 9;
+		}
+	}
+
+	return which_reg;
+}
+
 /* ------------------------------------------------------------------------- */
 void
 ESFM_update_write_buffer(esfm_chip *chip)
 {
 	esfm_write_buf *write_buf;
+	bool note_off_written[20];
+	bool bassdrum_written = false;
+	int i;
+	for (i = 0; i < 20; i++)
+	{
+		note_off_written[i] = false;
+	}
 	while((write_buf = &chip->write_buf[chip->write_buf_start]),
 		write_buf->valid && write_buf->timestamp <= chip->write_buf_timestamp)
 	{
+		int is_which_note_on_reg =
+			ESFM_reg_write_chan_idx(chip, write_buf->address);
+		if (is_which_note_on_reg >= 0)
+		{
+			if ((chip->native_mode && (write_buf->data & 0x01) == 0)
+				|| (!chip->native_mode && (write_buf->data & 0x20) == 0)
+			)
+			{
+				// this is a note off command; note down that we got note off for this channel
+				note_off_written[is_which_note_on_reg] = true;
+			}
+			else
+			{
+				// this is a note on command; have we gotten a note off for this channel in this cycle?
+				if (note_off_written[is_which_note_on_reg])
+				{
+					// we have a conflict; let the note off be processed first and defer the
+					// rest of the buffer to the next cycle
+					break;
+				}
+			}
+		}
+		if ((chip->native_mode && write_buf->address == 0x4bd)
+			|| (!chip->native_mode && (write_buf->address & 0xff) == 0xbd)
+		)
+		{
+			// bassdrum register write (rhythm mode note-on/off control)
+			// have we already written to the bassdrum register in this cycle
+			if (bassdrum_written) {
+				// we have a conflict
+				break;
+			}
+			bassdrum_written = true;
+		}
+
 		write_buf->valid = 0;
 		ESFM_write_reg(chip, write_buf->address, write_buf->data);
 		chip->write_buf_start = (chip->write_buf_start + 1) % ESFM_WRITEBUF_SIZE;

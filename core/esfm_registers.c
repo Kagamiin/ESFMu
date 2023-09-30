@@ -401,7 +401,7 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 static void
 ESFM_write_reg_native (esfm_chip *chip, uint16_t address, uint8_t data)
 {
-    int i;
+	int i;
 	address = address & 0x7ff;
 
 	if (address < KEY_ON_REGS_START)
@@ -794,6 +794,28 @@ ESFM_write_reg_buffered (esfm_chip *chip, uint16_t address, uint8_t data)
 	}
 
 	new_entry->timestamp = timestamp;
+	chip->write_buf_end = (chip->write_buf_end + 1) % ESFM_WRITEBUF_SIZE;
+}
+
+/* ------------------------------------------------------------------------- */
+void
+ESFM_write_reg_buffered_fast (esfm_chip *chip, uint16_t address, uint8_t data)
+{
+	uint64_t timestamp;
+	esfm_write_buf *new_entry, *last_entry;
+
+	new_entry = &chip->write_buf[chip->write_buf_end];
+	last_entry = &chip->write_buf[(chip->write_buf_end - 1) % ESFM_WRITEBUF_SIZE];
+
+	if (new_entry->valid) {
+		ESFM_write_reg(chip, new_entry->address, new_entry->data);
+		chip->write_buf_start = (chip->write_buf_end + 1) % ESFM_WRITEBUF_SIZE;
+	}
+
+	new_entry->valid = 1;
+	new_entry->address = address;
+	new_entry->data = data;
+	new_entry->timestamp = chip->write_buf_timestamp;
 	chip->write_buf_end = (chip->write_buf_end + 1) % ESFM_WRITEBUF_SIZE;
 }
 

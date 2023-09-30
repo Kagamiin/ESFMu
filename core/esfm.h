@@ -61,6 +61,7 @@ typedef struct _esfm_chip esfm_chip;
 void ESFM_init (esfm_chip *chip);
 void ESFM_write_reg (esfm_chip *chip, uint16_t address, uint8_t data);
 void ESFM_write_reg_buffered (esfm_chip *chip, uint16_t address, uint8_t data);
+void ESFM_write_reg_buffered_fast (esfm_chip *chip, uint16_t address, uint8_t data);
 void ESFM_write_port (esfm_chip *chip, uint8_t offset, uint8_t data);
 uint8_t ESFM_readback_reg (esfm_chip *chip, uint16_t address);
 uint8_t ESFM_read_port (esfm_chip *chip, uint8_t offset);
