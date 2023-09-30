@@ -34,23 +34,23 @@ To use **ESFMu**:
 - declare or allocate a variable of type `esfm_chip` somewhere in your code - this will hold the chip's state
 - use the function interface defined in **esfm.h** to interact with the `esfm_chip` structure
 
-### Function interface
+## Function interface
 
 If you're familiar with **Nuked OPL3**, you'll find many similarities in the function interface provided by **ESFMu**. There are a few things to point out, however:
 
-#### Buffered writes
+### Buffered writes
 
 Just like **Nuked OPL3**, **ESFMu** offers buffered register writes. However, it offers them in two flavors: "legacy" and fast.
 
 The fast buffered register writes (`ESFM_write_reg_buffered_fast`) are recommended, since they offer minimal latency which is close to the behavior you'd get with the actual ESS drivers on Windows. The "legacy" buffered register writes are only recommended for specific cases, such as programs seeking for a shortcut to emulate the write delays from some sound drivers.
 
-#### Port-level access
+### Port-level access
 
 Unlike **Nuked OPL3**, **ESFMu** actually allows port-level access to the ESFM interface. This is relevant because the ESFM port interface is actually modal, meaning that its behavior changes depending on whether the chip is set to emulation (OPL3 compatibility) mode or native (ESFM) mode.
 
 Using port-level access allows for applications to not need to keep track of whether the chip is in native mode or not, nor to perform the port handling logic on their side. Applications that use the register-level access, on the other hand, need to take care to either stick to only one of the operating modes (either native or emulation), or handle the port mapping logic on their own side.
 
-#### Register readback
+### Register readback
 
 ESFM allows for register contents to be read back through its ports, and **ESFMu** implements this functionality, both via dedicated register read functions and via the port read interface.
 
