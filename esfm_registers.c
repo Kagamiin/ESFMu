@@ -425,8 +425,8 @@ ESFM_write_reg_native (esfm_chip *chip, uint16_t address, uint8_t data)
 	else if (address < KEY_ON_REGS_START + 20)
 	{
 		// Key-on channels 17 and 18 (each half)
-		size_t channel_idx = 16 + (address & 0x01);
-		bool second_half = address & 0x03;
+		size_t channel_idx = 16 + ((address & 0x02) >> 1);
+		bool second_half = address & 0x01;
 		esfm_channel *channel = &chip->channels[channel_idx];
 		if (second_half)
 		{
@@ -516,7 +516,7 @@ ESFM_readback_reg_native (esfm_chip *chip, uint16_t address)
 	else if (address < KEY_ON_REGS_START + 20)
 	{
 		// Key-on channels 17 and 18 (each half)
-		size_t channel_idx = 16 + (address & 0x03);
+		size_t channel_idx = 16 + ((address & 0x02) >> 1);
 		bool second_half = address & 0x01;
 		esfm_channel *channel = &chip->channels[channel_idx];
 		if (second_half)
@@ -801,11 +801,9 @@ ESFM_write_reg_buffered (esfm_chip *chip, uint16_t address, uint8_t data)
 void
 ESFM_write_reg_buffered_fast (esfm_chip *chip, uint16_t address, uint8_t data)
 {
-	uint64_t timestamp;
-	esfm_write_buf *new_entry, *last_entry;
+	esfm_write_buf *new_entry;
 
 	new_entry = &chip->write_buf[chip->write_buf_end];
-	last_entry = &chip->write_buf[(chip->write_buf_end - 1) % ESFM_WRITEBUF_SIZE];
 
 	if (new_entry->valid) {
 		ESFM_write_reg(chip, new_entry->address, new_entry->data);
