@@ -320,8 +320,8 @@ ESFM_slot_readback (esfm_slot *slot, uint8_t register_idx)
 	case 0x06:
 		data |= (slot->tremolo_deep != 0) << 7;
 		data |= (slot->vibrato_deep != 0) << 6;
-		data |= (slot->out_enable[0] != 0) << 5;
-		data |= (slot->out_enable[1] != 0) << 4;
+		data |= (slot->out_enable[1] != 0) << 5;
+		data |= (slot->out_enable[0] != 0) << 4;
 		data |= (slot->mod_in_level & 0x07) << 1;
 		data |= slot->emu_connection_typ & 0x01;
 		break;
@@ -374,8 +374,8 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 	case 0x06:
 		slot->tremolo_deep = (data & 0x80) != 0;
 		slot->vibrato_deep = (data & 0x40) != 0;
-		slot->out_enable[0] = (data & 0x20) ? ~((int13) 0) : 0;
-		slot->out_enable[1] = (data & 0x10) ? ~((int13) 0) : 0;
+		slot->out_enable[1] = (data & 0x20) ? ~((int13) 0) : 0;
+		slot->out_enable[0] = (data & 0x10) ? ~((int13) 0) : 0;
 		slot->mod_in_level = (data >> 1) & 0x07;
 		slot->emu_connection_typ = data & 0x01;
 		break;
