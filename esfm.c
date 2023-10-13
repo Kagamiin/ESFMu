@@ -424,7 +424,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 		}
 		else
 		{
-			if (slot->chip->global_timer & (1 << slot->env_delay))
+			if ((slot->chip->global_timer & ((1 << slot->env_delay) - 1)) == 0)
 			{
 				slot->in.eg_delay_counter--;
 			}
