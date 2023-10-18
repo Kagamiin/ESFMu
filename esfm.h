@@ -169,10 +169,11 @@ typedef struct _esfm_slot_internal
 	uint10 phase_out;
 	flag phase_reset;
 	flag *key_on;
+	flag key_on_gate;
 
 	uint2 eg_state;
 	flag eg_delay_run;
-	uint9 eg_delay_counter;
+	uint16 eg_delay_counter;
 
 } esfm_slot_internal;
 
