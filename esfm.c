@@ -1136,6 +1136,43 @@ ESFM_generate(esfm_chip *chip, int16_t *buf)
 }
 
 /* ------------------------------------------------------------------------- */
+int16_t
+ESFM_get_channel_output_native(esfm_chip *chip, int channel_idx)
+{
+	int16_t result;
+	int32_t temp_mix = 0;
+	int i;
+	
+	if (channel_idx < 0 || channel_idx >= 18)
+	{
+		return 0;
+	}
+	
+	for (i = 0; i < 4; i++)
+	{
+		esfm_slot *slot = &chip->channels[channel_idx].slots[i];
+		
+		if (slot->output_level)
+		{
+			int13 output_value = slot->in.output >> (7 - slot->output_level);
+			temp_mix += output_value & slot->out_enable[0];
+			temp_mix += output_value & slot->out_enable[1];
+		}
+	}
+	
+	if (temp_mix > 32767)
+	{
+		temp_mix = 32767;
+	}
+	else if (temp_mix < -32768)
+	{
+		temp_mix = -32768;
+	}
+	result = temp_mix;
+	return result;
+}
+
+/* ------------------------------------------------------------------------- */
 void
 ESFM_generate_stream(esfm_chip *chip, int16_t *sndptr, uint32_t num_samples)
 {
