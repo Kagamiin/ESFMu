@@ -196,12 +196,6 @@ static int13
 ESFM_envelope_calc_sin0(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	int13 neg = 1;
-	phase &= 0x3ff;
-	if (phase & 0x200)
-	{
-		neg = -1;
-	}
 	if (phase & 0x100)
 	{
 		out = logsinrom[(phase & 0xff) ^ 0xff];
@@ -210,7 +204,8 @@ ESFM_envelope_calc_sin0(uint10 phase, uint10 envelope)
 	{
 		out = logsinrom[phase & 0xff];
 	}
-	return ESFM_envelope_calc_exp(out + (envelope << 3)) * neg;
+	return (phase & 0x200) ? ESFM_envelope_calc_exp(out + (envelope << 3))
+		: -ESFM_envelope_calc_exp(out + (envelope << 3));
 }
 
 /* ------------------------------------------------------------------------- */
@@ -218,7 +213,6 @@ static int13
 ESFM_envelope_calc_sin1(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
 		out = 0x1000;
@@ -256,7 +250,6 @@ static int13
 ESFM_envelope_calc_sin3(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	phase &= 0x3ff;
 	if (phase & 0x100)
 	{
 		out = 0x1000;
@@ -273,12 +266,6 @@ static int13
 ESFM_envelope_calc_sin4(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	int13 neg = 1;
-	phase &= 0x3ff;
-	if ((phase & 0x300) == 0x100)
-	{
-		neg = -1;
-	}
 	if (phase & 0x200)
 	{
 		out = 0x1000;
@@ -291,7 +278,8 @@ ESFM_envelope_calc_sin4(uint10 phase, uint10 envelope)
 	{
 		out = logsinrom[(phase << 1) & 0xff];
 	}
-	return ESFM_envelope_calc_exp(out + (envelope << 3)) * neg;
+	return ((phase & 0x300) == 0x100) ? ESFM_envelope_calc_exp(out + (envelope << 3))
+		: -ESFM_envelope_calc_exp(out + (envelope << 3));
 }
 
 /* ------------------------------------------------------------------------- */
@@ -299,7 +287,6 @@ static int13
 ESFM_envelope_calc_sin5(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
-	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
 		out = 0x1000;
@@ -319,13 +306,8 @@ ESFM_envelope_calc_sin5(uint10 phase, uint10 envelope)
 static int13
 ESFM_envelope_calc_sin6(uint10 phase, uint10 envelope)
 {
-	int13 neg = 1;
-	phase &= 0x3ff;
-	if (phase & 0x200)
-	{
-		neg = -1;
-	}
-	return ESFM_envelope_calc_exp(envelope << 3) * neg;
+	return (phase & 0x200) ? ESFM_envelope_calc_exp(envelope << 3)
+		: -ESFM_envelope_calc_exp(envelope << 3);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -334,7 +316,6 @@ ESFM_envelope_calc_sin7(uint10 phase, uint10 envelope)
 {
 	uint16 out = 0;
 	int13 neg = 1;
-	phase &= 0x3ff;
 	if (phase & 0x200)
 	{
 		neg = -1;
