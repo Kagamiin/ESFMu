@@ -1,5 +1,9 @@
 # ESFMu
 
+<p align=center>
+  <img src="assets/logo.png" height="300px">
+</p>
+
 An emulator for the ESS "ESFM" enhanced OPL3 clone, based on Nuke.YKT's **Nuked OPL3** and reverse-engineering efforts from the community.
 
 ## Acknowledgements
@@ -25,6 +29,8 @@ I'd like to thank:
   - For documenting ESS's patent on ESFM's feedback implementation, which was vital in getting **ESFMu**'s sound output to be accurate.
 - **akumanatt**
   - For helping out with code optimization.
+- **shadex/shidzy13**
+  - For helping out with the nifty logo above, thanks!
 - And everybody who helped out with real hardware testing
 
 ## Usage
