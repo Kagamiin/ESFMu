@@ -899,7 +899,6 @@ ESFM_read_port (esfm_chip *chip, uint8_t offset)
 	switch(offset)
 	{
 	case 0:
-		// TODO: actually implement timer count, trigger and reset
 		data |= (chip->irq_bit != 0) << 7;
 		data |= (chip->timer_overflow[0] != 0) << 6;
 		data |= (chip->timer_overflow[1] != 0) << 5;

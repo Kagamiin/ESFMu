@@ -248,6 +248,7 @@ struct _esfm_chip
 	flag emu_vibrato_deep;
 	flag emu_tremolo_deep;
 
+	double timer_accumulator[2];
 	uint8 timer_reload[2];
 	uint8 timer_counter[2];
 	flag timer_enable[2];

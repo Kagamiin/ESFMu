@@ -2054,10 +2054,13 @@ ESFM_clip_sample(int32 sample)
 	return (int16_t)sample;
 }
 
+#define TIMER1_CONST (0.2517482517482517)
+#define TIMER2_CONST (0.06293706293706293)
 /* ------------------------------------------------------------------------- */
 static void
 ESFM_update_timers(esfm_chip *chip)
-{
+{	
+	int i;
 	// Tremolo
 	if ((chip->global_timer & 0x3f) == 0x3f)
 	{
@@ -2107,6 +2110,27 @@ ESFM_update_timers(esfm_chip *chip)
 		{
 			chip->eg_timer++;
 			chip->eg_timer_overflow = 0;
+		}
+	}
+
+	for (i = 0; i < 2; i++)
+	{
+		if (chip->timer_enable[i])
+		{
+			chip->timer_accumulator[i] += i == 0 ? TIMER1_CONST : TIMER2_CONST;
+			if (chip->timer_accumulator[i] > 1.0)
+			{
+				chip->timer_accumulator[i] -= 1.0;
+				chip->timer_counter[i]++;
+				if (chip->timer_counter[i] == 0)
+				{
+					if (chip->timer_mask[i] == 0)
+					{
+						chip->timer_overflow[i] = true;
+					}
+					chip->timer_counter[i] = chip->timer_reload[i];
+				}
+			}
 		}
 	}
 
