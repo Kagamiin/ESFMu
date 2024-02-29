@@ -215,7 +215,7 @@ struct _esfm_chip
 {
 	esfm_channel channels[18];
 	int32 output_accm[2];
-	uint_fast16_t addr_latch;
+	uint16 addr_latch;
 
 	flag emu_wavesel_enable;
 	flag emu_newmode;

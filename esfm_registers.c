@@ -850,6 +850,7 @@ ESFM_write_port (esfm_chip *chip, uint8_t offset, uint8_t data)
 		case 0:
 			chip->native_mode = 0;
 			ESFM_native_to_emu_switch(chip);
+			// TODO: verify if the address write goes through
 			chip->addr_latch = data;
 			break;
 		case 1:
@@ -886,43 +887,31 @@ uint8_t
 ESFM_read_port (esfm_chip *chip, uint8_t offset)
 {
 	uint8_t data = 0;
-	if (chip->native_mode)
+
+	switch(offset)
 	{
-		switch(offset)
+	case 0:
+		// TODO: actually implement timer count, trigger and reset
+		data |= (chip->irq_bit != 0) << 7;
+		data |= (chip->timer_overflow[0] != 0) << 6;
+		data |= (chip->timer_overflow[1] != 0) << 5;
+		break;
+	case 1:
+		if (chip->native_mode)
 		{
-		case 0:
-			// TODO: actually implement timer count, trigger and reset
-			data |= (chip->irq_bit != 0) << 7;
-			data |= (chip->timer_overflow[0] != 0) << 6;
-			data |= (chip->timer_overflow[1] != 0) << 5;
-			break;
-		case 1:
 			data = ESFM_readback_reg_native(chip, chip->addr_latch);
-			break;
-		// TODO: verify what the ESFM chip actually returns when reading
-		// from the other address ports
 		}
-	}
-	else
-	{
-		switch(offset)
+		else
 		{
-		case 0:
-			data |= (chip->irq_bit != 0) << 7;
-			data |= (chip->timer_overflow[0] != 0) << 6;
-			data |= (chip->timer_overflow[1] != 0) << 5;
-			break;
-		case 1:
 			data = 0;
-			break;
-		case 2: case 3:
-			// This matches OPL3 behavior.
-			// TODO: verify what the ESFM chip actually returns when reading
-			// from address ports in emulation mode
-			data = 0xff;
-			break;
 		}
+		break;
+	case 2: case 3:
+		// This matches OPL3 behavior.
+		data = 0xff;
+		break;
 	}
+
 	return data;
 }
 
