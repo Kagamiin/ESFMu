@@ -1779,7 +1779,7 @@ ESFM_process_feedback(esfm_chip *chip)
 			eg_output = slot->in.eg_output;
 
 			// ASM optimizaions!
-#if defined(__GNUC__) && defined(__x86_64__)
+#if defined(__GNUC__) && defined(__x86_64__) && !defined(_ESFMU_DISABLE_ASM_OPTIMIZATIONS)
 			asm (
 				"movzbq  %[wave], %%r8               \n\t"
 				"shll    $11, %%r8d                  \n\t"
@@ -1844,7 +1844,7 @@ ESFM_process_feedback(esfm_chip *chip)
 				  [exprom] "m"   (exprom)
 				: "cc", "ax", "bx", "cx", "dx", "r8", "r9", "r10", "r11"
 			);
-#elif defined(__GNUC__) && defined(__i386__)
+#elif defined(__GNUC__) && defined(__i386__) && !defined(_ESFMU_DISABLE_ASM_OPTIMIZATIONS)
 			asm (
 				"movzbl  %b[wave], %%eax             \n\t"
 				"shll    $11, %%eax                  \n\t"
@@ -1910,7 +1910,7 @@ ESFM_process_feedback(esfm_chip *chip)
 				  [i]      "m"   (iter_counter)
 				: "cc", "ax", "bx", "cx", "di"
 			);
-#elif defined(__GNUC__) && defined(__arm__)
+#elif defined(__GNUC__) && defined(__arm__) && !defined(_ESFMU_DISABLE_ASM_OPTIMIZATIONS)
 			asm (
 				"movs    r3, #0                     \n\t"
 				"movs    %[out], #0                 \n\t"
