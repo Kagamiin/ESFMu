@@ -1845,10 +1845,13 @@ ESFM_process_feedback(esfm_chip *chip)
 				: "cc", "ax", "bx", "cx", "dx", "r8", "r9", "r10", "r11"
 			);
 #elif defined(__GNUC__) && defined(__i386__) && !defined(_ESFMU_DISABLE_ASM_OPTIMIZATIONS)
+			size_t logsinrom_addr = (size_t)logsinrom;
+			size_t exprom_addr = (size_t)exprom;
+
 			asm (
 				"movzbl  %b[wave], %%eax             \n\t"
 				"shll    $11, %%eax                  \n\t"
-				"leal    %[sinrom], %%edi            \n\t"
+				"movl    %[sinrom], %%edi            \n\t"
 				"addl    %%eax, %%edi                \n\t"
 				"shlw    $3, %[eg_out]               \n\t"
 				"xorl    %[out], %[out]              \n\t"
@@ -1883,7 +1886,7 @@ ESFM_process_feedback(esfm_chip *chip)
 				// wave_out = exprom[level & 0xff] >> (level >> 8);
 				"movb    %%ah, %%cl                  \n\t"
 				"movzbl  %%al, %%eax                 \n\t"
-				"leal    %[exprom], %[out]           \n\t"
+				"movl    %[exprom], %[out]           \n\t"
 				"movzwl  (%[out], %%eax, 2), %[out]  \n\t"
 				"shrl    %%cl, %[out]                \n\t"
 				// if (lookup & 0x8000) wave_out = -wave_out;
@@ -1905,8 +1908,8 @@ ESFM_process_feedback(esfm_chip *chip)
 				: [p_off]  "m"   (phase_offset),
 				  [mod_in] "m"   (mod_in_shift),
 				  [wave]   "m"   (waveform),
-				  [sinrom] "m"   (logsinrom),
-				  [exprom] "m"   (exprom),
+				  [sinrom] "m"   (logsinrom_addr),
+				  [exprom] "m"   (exprom_addr),
 				  [i]      "m"   (iter_counter)
 				: "cc", "ax", "bx", "cx", "di"
 			);
