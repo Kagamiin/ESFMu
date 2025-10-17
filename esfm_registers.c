@@ -56,6 +56,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+extern int16_t ESFM_clip_sample(int32 sample);
+extern int16_t ESFM_overflow_clip_sample(int32 sample);
 
 /*
  * Table of KSL values extracted from OPL3 ROM; taken straight from Nuked OPL3
@@ -954,13 +956,23 @@ ESFM_set_mode (esfm_chip *chip, bool native_mode)
 
 /* ------------------------------------------------------------------------- */
 void
-ESFM_init (esfm_chip *chip)
+ESFM_init_with_rev (esfm_chip *chip, esfm_revision rev)
 {
 	esfm_slot *slot;
 	esfm_channel *channel;
 	size_t channel_idx, slot_idx;
 
 	memset(chip, 0, sizeof(esfm_chip));
+	
+	if (rev >= ESFM_REV_ES1869_ES19XX_ESSSOLO)
+	{
+		chip->sample_clip_fn = ESFM_overflow_clip_sample;
+	}
+	else
+	{
+		chip->sample_clip_fn = ESFM_clip_sample;
+	}
+
 	for (channel_idx = 0; channel_idx < 18; channel_idx++)
 	{
 		for (slot_idx = 0; slot_idx < 4; slot_idx++)
@@ -1007,3 +1019,8 @@ ESFM_init (esfm_chip *chip)
 	chip->lfsr = 1;
 }
 
+void ESFM_init(esfm_chip *chip)
+{
+	// Init chip with default revision
+	return ESFM_init_with_rev(chip, ESFM_REV_ES16XX_ES17XX_ES1868);
+}

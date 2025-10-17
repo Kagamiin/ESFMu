@@ -59,8 +59,25 @@ typedef struct _esfm_slot_internal esfm_slot_internal;
 typedef struct _esfm_channel esfm_channel;
 typedef struct _esfm_chip esfm_chip;
 
+// Determines which chip revision to emulate.
+// Revisions with identical ESFM behavior are lumped together;
+// see enum values for more info.
+typedef enum esfm_revisions_e_
+{
+	// Has proper sample clipping behavior;
+	// examples: ES1688, ES1689, ES1788, ES1789, ES1868
+	ESFM_REV_ES16XX_ES17XX_ES1868,
+
+	// Has broken sample clipping behavior with overflow;
+	// examples: ES1698, ES1878, ES1887, ES1888 and all ESS Solo-1 PCI chipsets
+	ESFM_REV_ES1869_ES19XX_ESSSOLO,
+
+	NUM_ESFM_REVISIONS
+} esfm_revision;
+
 
 void ESFM_init (esfm_chip *chip);
+void ESFM_init_with_rev (esfm_chip *chip, esfm_revision rev);
 void ESFM_write_reg (esfm_chip *chip, uint16_t address, uint8_t data);
 void ESFM_write_reg_buffered (esfm_chip *chip, uint16_t address, uint8_t data);
 void ESFM_write_reg_buffered_fast (esfm_chip *chip, uint16_t address, uint8_t data);
@@ -95,6 +112,8 @@ typedef int16_t int13;
 typedef int16_t int14;
 typedef int16_t int16;
 typedef int32_t int32;
+
+typedef int16_t (*esfm_clip_func)(int32);
 
 enum eg_states
 {
@@ -282,6 +301,8 @@ struct _esfm_chip
 	size_t write_buf_start;
 	size_t write_buf_end;
 	uint64_t write_buf_timestamp;
+
+	esfm_clip_func sample_clip_fn;
 };
 
 #ifdef __cplusplus

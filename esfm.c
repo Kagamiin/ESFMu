@@ -2045,11 +2045,11 @@ ESFM_process_channel_emu(esfm_channel *channel)
 }
 
 /* ------------------------------------------------------------------------- */
-static int16_t
+int16_t
 ESFM_clip_sample(int32 sample)
 {
-	// TODO: Supposedly, the real ESFM chip actually overflows rather than
-	// clipping. Verify that.
+	// This properly clips the sample no matter its amplitude, matching earlier
+	// ESFM revisions.
 	if (sample > 32767)
 	{
 		sample = 32767;
@@ -2057,6 +2057,27 @@ ESFM_clip_sample(int32 sample)
 	else if (sample < -32768)
 	{
 		sample = -32768;
+	}
+	return (int16_t)sample;
+}
+
+/* ------------------------------------------------------------------------- */
+int16_t
+ESFM_overflow_clip_sample(int32 sample)
+{
+	// This emulates the clipping overflow behavior on later ESFM revisions.
+	// See esfm_revisions_e_ for more info.
+	if (sample & 0x8000)
+	{
+		sample = 32767;
+	}
+	else if (sample < 0 && !(sample & 0x8000))
+	{
+		sample = -32768;
+	}
+	else
+	{
+		sample &= 0xFFFF;
 	}
 	return (int16_t)sample;
 }
@@ -2266,8 +2287,8 @@ ESFM_generate(esfm_chip *chip, int16_t *buf)
 		chip->output_accm[1] += channel->output[1];
 	}
 
-	buf[0] = ESFM_clip_sample(chip->output_accm[0]);
-	buf[1] = ESFM_clip_sample(chip->output_accm[1]);
+	buf[0] = chip->sample_clip_fn(chip->output_accm[0]);
+	buf[1] = chip->sample_clip_fn(chip->output_accm[1]);
 
 	ESFM_update_timers(chip);
 	ESFM_update_write_buffer(chip);
