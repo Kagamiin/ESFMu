@@ -113,8 +113,6 @@ typedef int16_t int14;
 typedef int16_t int16;
 typedef int32_t int32;
 
-typedef int16_t (*esfm_clip_func)(int32);
-
 enum eg_states
 {
 	EG_ATTACK,
@@ -302,7 +300,7 @@ struct _esfm_chip
 	size_t write_buf_end;
 	uint64_t write_buf_timestamp;
 
-	esfm_clip_func sample_clip_fn;
+	esfm_revision rev;
 };
 
 #ifdef __cplusplus

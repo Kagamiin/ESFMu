@@ -964,13 +964,14 @@ ESFM_init_with_rev (esfm_chip *chip, esfm_revision rev)
 
 	memset(chip, 0, sizeof(esfm_chip));
 	
-	if (rev >= ESFM_REV_ES1869_ES19XX_ESSSOLO)
+	if (rev < 0 || rev >= NUM_ESFM_REVISIONS)
 	{
-		chip->sample_clip_fn = ESFM_overflow_clip_sample;
+		// If the rev argument is invalid, fallback to the older chip revisions
+		chip->rev = ESFM_REV_ES16XX_ES17XX_ES1868;
 	}
 	else
 	{
-		chip->sample_clip_fn = ESFM_clip_sample;
+		chip->rev = rev;
 	}
 
 	for (channel_idx = 0; channel_idx < 18; channel_idx++)

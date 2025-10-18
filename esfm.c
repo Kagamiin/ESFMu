@@ -2287,8 +2287,18 @@ ESFM_generate(esfm_chip *chip, int16_t *buf)
 		chip->output_accm[1] += channel->output[1];
 	}
 
-	buf[0] = chip->sample_clip_fn(chip->output_accm[0]);
-	buf[1] = chip->sample_clip_fn(chip->output_accm[1]);
+	if (chip->rev >= ESFM_REV_ES1869_ES19XX_ESSSOLO)
+	{
+		// Emulate overflow bug from later revisions
+		buf[0] = ESFM_overflow_clip_sample(chip->output_accm[0]);
+		buf[1] = ESFM_overflow_clip_sample(chip->output_accm[1]);
+	}
+	else
+	{
+		// Clip the sample properly as in older revisions
+		buf[0] = ESFM_clip_sample(chip->output_accm[0]);
+		buf[1] = ESFM_clip_sample(chip->output_accm[1]);
+	}
 
 	ESFM_update_timers(chip);
 	ESFM_update_write_buffer(chip);
