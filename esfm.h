@@ -258,6 +258,9 @@ struct _esfm_chip
 	uint8 tremolo_pos;
 	uint8 vibrato_pos;
 	uint23 lfsr;
+	// number of slot-3s with rhy_noise set; nothing reads the LFSR when 0
+	uint8 rhy_noise_slot3_count;
+	flag lfsr_batch;
 
 	flag rm_hh_bit2;
 	flag rm_hh_bit3;

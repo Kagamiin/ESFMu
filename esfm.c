@@ -1510,6 +1510,60 @@ ESFM_envelope_calc_emu(esfm_slot *slot)
 	ESFM_envelope_calc_inner(slot, 0);
 }
 
+/*
+ * LFSR jump tables. Noise LFSR advances once per slot (72x per sample), but is
+ * only read by slot-3 noise modes in native mode, or the rhythm slots in OPL
+ * emu mode. When nothing can read it, a precomputed 72-step jump can replace
+ * the 72 single steps. The step function is linear over GF(2) so it decomposes
+ * into table lookups.
+ */
+static uint32_t lfsr_jump72_lo[256];
+static uint32_t lfsr_jump72_mid[256];
+static uint32_t lfsr_jump72_hi[128];
+static int lfsr_jump72_ready = 0;
+
+static inline uint32_t
+ESFM_lfsr_step(uint32_t noise)
+{
+	uint32_t n_bit = ((noise >> 14) ^ noise) & 0x01;
+	return (noise >> 1) | (n_bit << 22);
+}
+
+void
+ESFM_lfsr_jump_init(void)
+{
+	int v, k;
+	if (lfsr_jump72_ready)
+	{
+		return;
+	}
+	for (v = 0; v < 256; v++)
+	{
+		uint32_t lo = (uint32_t)v, mid = (uint32_t)v << 8, hi = (uint32_t)(v & 0x7f) << 16;
+		for (k = 0; k < 72; k++)
+		{
+			lo = ESFM_lfsr_step(lo);
+			mid = ESFM_lfsr_step(mid);
+			hi = ESFM_lfsr_step(hi);
+		}
+		lfsr_jump72_lo[v] = lo;
+		lfsr_jump72_mid[v] = mid;
+		if (v < 128)
+		{
+			lfsr_jump72_hi[v] = hi;
+		}
+	}
+	lfsr_jump72_ready = 1;
+}
+
+static inline uint32_t
+ESFM_lfsr_jump72(uint32_t noise)
+{
+	return lfsr_jump72_lo[noise & 0xff]
+		^ lfsr_jump72_mid[(noise >> 8) & 0xff]
+		^ lfsr_jump72_hi[noise >> 16];
+}
+
 /* ------------------------------------------------------------------------- */
 static void
 ESFM_phase_generate(esfm_slot *slot)
@@ -1562,6 +1616,12 @@ ESFM_phase_generate(esfm_slot *slot)
 	slot->in.phase_acc += phase_inc;
 	slot->in.phase_acc &= (1 << 19) - 1;
 	slot->in.phase_out = phase;
+	if (chip->lfsr_batch)
+	{
+		/* No slot can read the LFSR this sample; ESFM_generate advances it
+		 * in one 72-step jump instead. */
+		return;
+	}
 	/* Noise mode (rhythm) sounds */
 	noise = chip->lfsr;
 	if (slot->slot_idx == 3 && slot->rhy_noise)
@@ -2236,6 +2296,7 @@ ESFM_generate(esfm_chip *chip, int16_t *buf)
 {
 	int channel_idx;
 
+	chip->lfsr_batch = chip->native_mode && chip->rhy_noise_slot3_count == 0;
 	chip->output_accm[0] = chip->output_accm[1] = 0;
 	for (channel_idx = 0; channel_idx < 18; channel_idx++)
 	{
@@ -2248,6 +2309,10 @@ ESFM_generate(esfm_chip *chip, int16_t *buf)
 		{
 			ESFM_process_channel_emu(channel);
 		}
+	}
+	if (chip->lfsr_batch)
+	{
+		chip->lfsr = ESFM_lfsr_jump72(chip->lfsr);
 	}
 	ESFM_process_feedback(chip);
 	for (channel_idx = 0; channel_idx < 18; channel_idx++)

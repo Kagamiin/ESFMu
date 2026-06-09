@@ -58,6 +58,7 @@
 
 extern int16_t ESFM_clip_sample(int32 sample);
 extern int16_t ESFM_overflow_clip_sample(int32 sample);
+extern void ESFM_lfsr_jump_init(void);
 
 /*
  * Table of KSL values extracted from OPL3 ROM; taken straight from Nuked OPL3
@@ -423,6 +424,12 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 		slot->emu_connection_typ = data & 0x01;
 		break;
 	case 0x07:
+		if (slot->slot_idx == 3)
+		{
+			slot->chip->rhy_noise_slot3_count = (uint8)
+				(slot->chip->rhy_noise_slot3_count
+				 - (slot->rhy_noise != 0) + (((data >> 3) & 0x03) != 0));
+		}
 		slot->output_level = data >> 5;
 		slot->rhy_noise = (data >> 3) & 0x03;
 		slot->waveform = data & 0x07;
@@ -996,6 +1003,7 @@ ESFM_init_with_rev (esfm_chip *chip, esfm_revision rev)
 	size_t channel_idx, slot_idx;
 
 	memset(chip, 0, sizeof(esfm_chip));
+	ESFM_lfsr_jump_init();
 	
 	if (rev < 0 || rev >= NUM_ESFM_REVISIONS)
 	{
