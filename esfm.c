@@ -1195,8 +1195,8 @@ ESFM_envelope_wavegen(uint3 waveform, int16 phase, uint10 envelope)
 }
 
 /* ------------------------------------------------------------------------- */
-static void
-ESFM_envelope_calc(esfm_slot *slot)
+static __attribute__((always_inline)) inline void
+ESFM_envelope_calc_inner(esfm_slot *slot, const bool native)
 {
 	uint8 nonzero;
 	uint8 rate;
@@ -1219,7 +1219,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 	 */
 	if (slot->in.eg_position == 0x1ff
 		&& slot->in.eg_state == EG_RELEASE
-		&& slot->chip->native_mode
+		&& native
 		&& !*slot->in.key_on
 		&& !slot->in.key_on_gate
 		&& !slot->in.eg_delay_run
@@ -1236,8 +1236,40 @@ ESFM_envelope_calc(esfm_slot *slot)
 		return;
 	}
 
+	/*
+	 * Fast path for note in sustain. The full algorithm would only
+	 * recompute eg_output, tick the delay counter, and apply the
+	 * envelope_off clamp.
+	 */
+	if (slot->in.eg_state == EG_SUSTAIN
+		&& slot->env_sustaining
+		&& native
+		&& *slot->in.key_on
+		&& slot->in.key_on_gate
+		&& slot->in.eg_delay_counter >= slot->in.eg_delay_counter_compare
+		&& !(slot->in.eg_delay_transitioned_10 && !slot->in.eg_delay_transitioned_10_gate)
+		&& !(slot->in.eg_delay_transitioned_01 && !slot->in.eg_delay_transitioned_01_gate))
+	{
+		uint16 eg_output = slot->in.eg_position + slot->eg_tl_ksl;
+		if (slot->tremolo_en)
+		{
+			eg_output += slot->chip->tremolo >> ((!slot->tremolo_deep << 1) + 2);
+		}
+		slot->in.eg_output = eg_output;
+		if (slot->in.eg_delay_run && slot->in.eg_delay_counter < 32768)
+		{
+			slot->in.eg_delay_counter++;
+		}
+		slot->in.phase_reset = 0;
+		if ((slot->in.eg_position & 0x1f8) == 0x1f8)
+		{
+			slot->in.eg_position = 0x1ff;
+		}
+		return;
+	}
+
 	key_on = *slot->in.key_on;
-	if (!slot->chip->native_mode)
+	if (!native)
 	{
 		int pair_primary_idx = emu_4op_secondary_to_primary[slot->channel->channel_idx];
 		if (pair_primary_idx >= 0)
@@ -1259,7 +1291,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 	if (slot->tremolo_en)
 	{
 		uint8 tremolo;
-		if (slot->chip->native_mode)
+		if (native)
 		{
 			tremolo = slot->channel->chip->tremolo >> ((!slot->tremolo_deep << 1) + 2);
 		}
@@ -1315,7 +1347,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 		}
 	}
 	
-	if (key_on && ((slot->in.eg_delay_counter >= slot->in.eg_delay_counter_compare) || !slot->chip->native_mode))
+	if (key_on && ((slot->in.eg_delay_counter >= slot->in.eg_delay_counter_compare) || !native))
 	{
 		key_on_signal = 1;
 	} else {
@@ -1325,7 +1357,7 @@ ESFM_envelope_calc(esfm_slot *slot)
 	if (key_on && slot->in.eg_state == EG_RELEASE)
 	{
 
-		if ((slot->in.eg_delay_counter >= slot->in.eg_delay_counter_compare) || !slot->chip->native_mode)
+		if ((slot->in.eg_delay_counter >= slot->in.eg_delay_counter_compare) || !native)
 		{
 			reset = 1;
 			reg_rate = slot->attack_rate;
@@ -1462,6 +1494,20 @@ ESFM_envelope_calc(esfm_slot *slot)
 	{
 		slot->in.eg_state = EG_RELEASE;
 	}
+}
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_envelope_calc(esfm_slot *slot)
+{
+	ESFM_envelope_calc_inner(slot, 1);
+}
+
+/* ------------------------------------------------------------------------- */
+static void
+ESFM_envelope_calc_emu(esfm_slot *slot)
+{
+	ESFM_envelope_calc_inner(slot, 0);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -1848,53 +1894,69 @@ ESFM_process_feedback(esfm_chip *chip)
 
 	for (base = 0; base < total; base += ESFM_FB_LANES)
 	{
-		int32_t wave_out[ESFM_FB_LANES] = {0};
-		int32_t wave_last[ESFM_FB_LANES] = {0};
-		int32_t phase_feedback[ESFM_FB_LANES] = {0};
-		uint32_t pa[ESFM_FB_LANES];
+/*
+ * One feedback chain step. Equivalent to
+ * ESFM_envelope_wavegen(waveform, phase, eg_output) plus the surrounding
+ * feedback bookkeeping.
+ */
+#define ESFM_FB_LANE_DECL(k) \
+	const uint16_t *wf##k = wf_base[base + (k)]; \
+	const uint32_t off##k = phase_offset[base + (k)]; \
+	const uint32_t e##k = eg3[base + (k)]; \
+	const int ms##k = mod_in_shift[base + (k)]; \
+	uint32_t pa##k = phase_acc[base + (k)]; \
+	int32_t out##k = 0, last##k = 0, pfb##k = 0
+
+#define ESFM_FB_LANE_STEP(k) do { \
+	uint32_t phase_, lookup_, level_; \
+	int32_t o_; \
+	pfb##k = (out##k + last##k) >> 2; \
+	last##k = out##k; \
+	phase_ = (uint32_t)(pfb##k >> ms##k) + (pa##k >> 9); \
+	lookup_ = wf##k[phase_ & 0x3ff]; \
+	level_ = (lookup_ & 0x1fff) + e##k; \
+	if (level_ > 0x1fff) \
+	{ \
+		level_ = 0x1fff; \
+	} \
+	o_ = exprom[level_ & 0xff] >> (level_ >> 8); \
+	if (lookup_ & 0x8000) \
+	{ \
+		o_ = -o_; \
+	} \
+	out##k = o_; \
+	pa##k += off##k; \
+} while (0)
+
+		ESFM_FB_LANE_DECL(0);
+		ESFM_FB_LANE_DECL(1);
+		ESFM_FB_LANE_DECL(2);
+		ESFM_FB_LANE_DECL(3);
+		int32_t pfb[ESFM_FB_LANES];
 		int iter;
 
-		for (lane = 0; lane < ESFM_FB_LANES; lane++)
-		{
-			pa[lane] = phase_acc[base + lane];
-		}
 		for (iter = 0; iter < 29; iter++)
 		{
-			for (lane = 0; lane < ESFM_FB_LANES; lane++)
-			{
-				uint32_t phase;
-				uint16 lookup, level;
-				int32_t out;
-
-				phase_feedback[lane] = (wave_out[lane] + wave_last[lane]) >> 2;
-				wave_last[lane] = wave_out[lane];
-				phase = phase_feedback[lane] >> mod_in_shift[base + lane];
-				phase += pa[lane] >> 9;
-				lookup = wf_base[base + lane][phase & 0x3ff];
-				level = (lookup & 0x1fff) + eg3[base + lane];
-				if (level > 0x1fff)
-				{
-					level = 0x1fff;
-				}
-				out = exprom[level & 0xff] >> (level >> 8);
-				if (lookup & 0x8000)
-				{
-					out = -out;
-				}
-				wave_out[lane] = out;
-				pa[lane] += phase_offset[base + lane];
-			}
+			ESFM_FB_LANE_STEP(0);
+			ESFM_FB_LANE_STEP(1);
+			ESFM_FB_LANE_STEP(2);
+			ESFM_FB_LANE_STEP(3);
 		}
+
+		pfb[0] = pfb0;
+		pfb[1] = pfb1;
+		pfb[2] = pfb2;
+		pfb[3] = pfb3;
 		for (lane = 0; lane < ESFM_FB_LANES && base + lane < total; lane++)
 		{
 			esfm_slot *slot = act[base + lane];
 			if (chip->native_mode)
 			{
-				slot->in.feedback_buf = phase_feedback[lane];
+				slot->in.feedback_buf = pfb[lane];
 			}
 			else
 			{
-				slot->in.feedback_buf = phase_feedback[lane] >> mod_in_shift[base + lane];
+				slot->in.feedback_buf = pfb[lane] >> mod_in_shift[base + lane];
 			}
 		}
 	}
@@ -1930,7 +1992,7 @@ ESFM_process_channel_emu(esfm_channel *channel)
 	for (slot_idx = 0; slot_idx < 2; slot_idx++)
 	{
 		esfm_slot *slot = &channel->slots[slot_idx];
-		ESFM_envelope_calc(slot);
+		ESFM_envelope_calc_emu(slot);
 		ESFM_phase_generate_emu(slot);
 		if(slot_idx > 0)
 		{
