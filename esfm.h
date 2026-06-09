@@ -210,6 +210,14 @@ struct _esfm_slot
 
 	// Internal state
 	esfm_slot_internal in;
+
+	// Write-time caches
+	// non-vibrato phase increment: (((f_num << block) >> 1) * mt[mult]) >> 1
+	uint32 pg_inc;
+	// (t_level << 2) + (in.eg_ksl_offset >> kslshift[ksl])
+	uint16 eg_tl_ksl;
+	// in.keyscale >> ((!ksr) << 1)
+	uint4 eg_ks;
 };
 
 struct _esfm_channel

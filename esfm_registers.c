@@ -70,6 +70,32 @@ static const int16 kslrom[16] = {
 };
 
 /*
+ * Copies of esfm.c kslshift and mt tables, used for cache refresh
+ */
+static const uint8_t kslshift_regs[4] = {
+	8, 1, 2, 0
+};
+
+static const uint8_t mt_regs[16] = {
+	1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 20, 24, 24, 30, 30
+};
+
+/*
+ * Refreshes the esfm_slot write-time caches (pg_inc, eg_tl_ksl, eg_ks) from
+ * the slot's register fields. Must be called whenever f_num, block, mult,
+ * t_level, ksl, ksr, in.eg_ksl_offset or in.keyscale change.
+ */
+static void
+ESFM_slot_refresh_caches(esfm_slot *slot)
+{
+	uint32 basefreq = ((uint32)slot->f_num << slot->block) >> 1;
+	slot->pg_inc = (basefreq * mt_regs[slot->mult]) >> 1;
+	slot->eg_tl_ksl = (slot->t_level << 2)
+		+ (slot->in.eg_ksl_offset >> kslshift_regs[slot->ksl]);
+	slot->eg_ks = slot->in.keyscale >> ((!slot->ksr) << 1);
+}
+
+/*
  * This maps the low 5 bits of emulation mode address to an emulation mode
  * slot; taken straight from Nuked OPL3. Used for decoding certain emulation
  * mode address ranges.
@@ -236,6 +262,9 @@ ESFM_slot_update_keyscale(esfm_slot *slot)
 {
 	if (slot->slot_idx > 0 && !slot->chip->native_mode)
 	{
+		// the caller may still have changed cache inputs (t_level, ksl,
+		// f_num, block, mult)
+		ESFM_slot_refresh_caches(slot);
 		return;
 	}
 
@@ -247,6 +276,7 @@ ESFM_slot_update_keyscale(esfm_slot *slot)
 	slot->in.eg_ksl_offset = ksl;
 	slot->in.keyscale = (slot->block << 1)
 		| ((slot->f_num >> (8 + !slot->chip->keyscale_mode)) & 0x01);
+	ESFM_slot_refresh_caches(slot);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -269,6 +299,7 @@ ESFM_emu_channel_update_keyscale(esfm_channel *channel)
 	ESFM_slot_update_keyscale(&channel->slots[0]);
 	channel->slots[1].in.eg_ksl_offset = channel->slots[0].in.eg_ksl_offset;
 	channel->slots[1].in.keyscale = channel->slots[0].in.keyscale;
+	ESFM_slot_refresh_caches(&channel->slots[1]);
 
 	if (channel->emu_mode_4op_enable && (channel->channel_idx % 9) < 3 && channel->chip->emu_newmode)
 	{
@@ -281,6 +312,7 @@ ESFM_emu_channel_update_keyscale(esfm_channel *channel)
 		{
 			secondary->slots[i].in.eg_ksl_offset = channel->slots[0].in.eg_ksl_offset;
 			secondary->slots[i].in.keyscale = channel->slots[0].in.keyscale;
+			ESFM_slot_refresh_caches(&secondary->slots[i]);
 		}
 	}
 }
@@ -348,6 +380,7 @@ ESFM_slot_write (esfm_slot *slot, uint8_t register_idx, uint8_t data)
 		slot->env_sustaining = (data & 0x20) != 0;
 		slot->ksr = (data & 0x10) != 0;
 		slot->mult = data & 0x0f;
+		ESFM_slot_refresh_caches(slot);
 		break;
 	case 0x01:
 		slot->ksl = data >> 6;
@@ -1014,6 +1047,7 @@ ESFM_init_with_rev (esfm_chip *chip, esfm_revision rev)
 			}
 
 			slot->out_enable[0] = slot->out_enable[1] = ~((int13) 0);
+			ESFM_slot_refresh_caches(slot);
 		}
 	}
 
