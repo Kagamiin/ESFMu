@@ -1,10 +1,23 @@
-# ESFMu
+# ESFMu-fast
 
 <p align=center>
   <img src="assets/logo.png" height="300px">
 </p>
 
 An emulator for the ESS "ESFM" enhanced OPL3 clone, based on Nuke.YKT's **Nuked OPL3** and reverse-engineering efforts from the community.
+
+This is a performance-optimized fork of [ESFMu](https://github.com/Kagamiin/ESFMu). Its audio output is bit-for-bit identical to upstream; on real ESFM music it renders roughly 2.2x faster (x86-64, GCC -O2). The function interface is unchanged, so it is a drop-in replacement.
+
+Changes relative to upstream:
+
+- Write-time caches (`pg_inc`, `eg_tl_ksl`, `eg_ks` in `esfm_slot`): the non-vibrato phase increment, the total-level + KSL envelope offset and the key-scale rate shift are recomputed on register writes instead of on every sample.
+- Interleaved feedback (`ESFM_process_feedback`): the per-channel inline-asm 29-iteration feedback loop was replaced with a C implementation that processes four channels in lockstep. The chain is serial through two dependent table loads per iteration, so interleaving independent channels gets around the load latency. This is where most of the speedup comes from.
+- Silent-slot fast paths: `exprom`'s maximum entry is 0xff4 (< 2^12), so a slot with `eg_output >= 0x180` produces exactly zero output for any phase. Slot generation and the feedback loop skip the table lookups for such slots.
+- Envelope fast paths (`ESFM_envelope_calc`): released slots (key off, envelope at 0x1ff, delay logic quiescent) and held sustain (key on, sustaining envelope, delay settled) skip the rate/state machine. The function is also specialized per chip mode.
+- Batched noise LFSR: the LFSR is only read by slot-3 noise modes or the OPL emu rhythm slots. When nothing can read it, the 72 per-slot steps per sample are replaced with one precomputed 72-step jump.
+- Smaller items: an early-out in `ESFM_update_write_buffer`, `__builtin_ctzll` for the envelope timer clocks, and a branch tremolo wrap.
+
+Bit-perfect output is verified against upstream with register traces of four Furnace ESFM songs, as well as a deterministic register-write fuzzer covering emulation mode, native noise slots, mode switches, and both chip revisions.
 
 ## Acknowledgements
 
