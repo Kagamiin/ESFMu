@@ -1177,8 +1177,8 @@ static const uint8_t eg_incstep[4][4] = {
 
 /* ------------------------------------------------------------------------- */
 /* Expanded exponent lookup. Initialized alongside the existing LFSR jump
- * tables; index is the clamped 13-bit logarithmic level. */
-static uint16 exprom_shifted[0x2000];
+ * tables. Entries above the 13-bit logarithmic clamp are all zero. */
+static uint16 exprom_shifted[0x2c00];
 
 static inline int13
 ESFM_envelope_wavegen(uint3 waveform, int16 phase, uint10 envelope)
@@ -1186,10 +1186,6 @@ ESFM_envelope_wavegen(uint3 waveform, int16 phase, uint10 envelope)
 	int13 out;
 	uint16 lookup = logsinrom[((uint16)waveform << 10) | (phase & 0x3ff)];
 	uint16 level = (lookup & 0x1fff) + (envelope << 3);
-	if (level > 0x1fff)
-	{
-		level = 0x1fff;
-	}
 	out = exprom_shifted[level];
 	if (lookup & 0x8000)
 	{
@@ -1541,9 +1537,10 @@ ESFM_lfsr_jump_init(void)
 	{
 		return;
 	}
-	for (level = 0; level < 0x2000; level++)
+	for (level = 0; level < 0x2c00; level++)
 	{
-		exprom_shifted[level] = exprom[level & 0xff] >> (level >> 8);
+		exprom_shifted[level] = level > 0x1fff
+			? 0 : exprom[level & 0xff] >> (level >> 8);
 	}
 	for (v = 0; v < 256; v++)
 	{
@@ -1983,10 +1980,6 @@ ESFM_process_feedback(esfm_chip *chip)
 	phase_ = (uint32_t)(pfb##k >> ms##k) + (pa##k >> 9); \
 	lookup_ = wf##k[phase_ & 0x3ff]; \
 	level_ = (lookup_ & 0x1fff) + e##k; \
-	if (level_ > 0x1fff) \
-	{ \
-		level_ = 0x1fff; \
-	} \
 	o_ = exprom_shifted[level_]; \
 	if (lookup_ & 0x8000) \
 	{ \
