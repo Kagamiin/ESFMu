@@ -131,6 +131,37 @@ static const int emu_4op_secondary_to_primary[18] =
 	-1, -1, -1, 9, 10, 11, -1, -1, -1
 };
 
+/* ------------------------------------------------------------------------- */
+/* Emulation slots share their channel's frequency, and a 4-op secondary uses
+ * its primary's frequency. Keep these increments separate from pg_inc so mode
+ * switches do not overwrite the native per-slot cache. */
+static void
+ESFM_emu_channel_update_phase_caches(esfm_channel *channel)
+{
+	esfm_channel *frequency_channel = channel;
+	int primary_idx = emu_4op_secondary_to_primary[channel->channel_idx];
+	uint32 basefreq;
+	int slot_idx;
+
+	if (primary_idx >= 0)
+	{
+		esfm_channel *primary = &channel->chip->channels[primary_idx];
+		if (primary->emu_mode_4op_enable)
+		{
+			frequency_channel = primary;
+		}
+	}
+
+	basefreq = ((uint32)frequency_channel->slots[0].f_num
+		<< frequency_channel->slots[0].block) >> 1;
+	for (slot_idx = 0; slot_idx < 2; slot_idx++)
+	{
+		esfm_slot *slot = &channel->slots[slot_idx];
+		channel->chip->emu_pg_inc[channel->channel_idx][slot_idx]
+			= (basefreq * mt_regs[slot->mult]) >> 1;
+	}
+}
+
 /*
  * This encodes the operator outputs to be enabled or disabled for
  * each 4-op algorithm in emulation mode.
@@ -254,6 +285,7 @@ ESFM_native_to_emu_switch(esfm_chip *chip)
 	for (channel_idx = 0; channel_idx < 18; channel_idx++)
 	{
 		ESFM_emu_rearrange_connections(&chip->channels[channel_idx]);
+		ESFM_emu_channel_update_phase_caches(&chip->channels[channel_idx]);
 	}
 }
 
@@ -315,6 +347,13 @@ ESFM_emu_channel_update_keyscale(esfm_channel *channel)
 			secondary->slots[i].in.keyscale = channel->slots[0].in.keyscale;
 			ESFM_slot_refresh_caches(&secondary->slots[i]);
 		}
+	}
+
+	ESFM_emu_channel_update_phase_caches(channel);
+	if (channel->emu_mode_4op_enable && (channel->channel_idx % 9) < 3)
+	{
+		ESFM_emu_channel_update_phase_caches(
+			&channel->chip->channels[channel->channel_idx + 3]);
 	}
 }
 
@@ -708,6 +747,8 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 				{
 					ESFM_emu_rearrange_connections(&chip->channels[i]);
 					ESFM_emu_rearrange_connections(&chip->channels[i + 9]);
+					ESFM_emu_channel_update_phase_caches(&chip->channels[i]);
+					ESFM_emu_channel_update_phase_caches(&chip->channels[i + 9]);
 				}
 				break;
 			case 0x05:
@@ -761,6 +802,7 @@ ESFM_write_reg_emu (esfm_chip *chip, uint16_t address, uint8_t data)
 		if (emu_slot_idx >= 0)
 		{
 			ESFM_slot_write(&chip->channels[natv_chan_idx].slots[natv_slot_idx], 0x0, data);
+			ESFM_emu_channel_update_phase_caches(&chip->channels[natv_chan_idx]);
 		}
 		break;
 	case 0x40: case 0x50:

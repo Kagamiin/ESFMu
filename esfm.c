@@ -1683,6 +1683,7 @@ ESFM_phase_generate_emu(esfm_slot *slot)
 	uint3 block;
 	uint10 f_num;
 	uint32 basefreq;
+	uint32 phase_inc;
 	bool rm_xor, n_bit;
 	uint23 noise;
 	uint10 phase;
@@ -1726,14 +1727,19 @@ ESFM_phase_generate_emu(esfm_slot *slot)
 			range = -range;
 		}
 		f_num += range;
+		basefreq = (f_num << block) >> 1;
+		phase_inc = (basefreq * mt[slot->mult]) >> 1;
 	}
-	basefreq = (f_num << block) >> 1;
+	else
+	{
+		phase_inc = chip->emu_pg_inc[slot->channel->channel_idx][slot->slot_idx];
+	}
 	phase = (uint10)(slot->in.phase_acc >> 9);
 	if (slot->in.phase_reset)
 	{
 		slot->in.phase_acc = 0;
 	}
-	slot->in.phase_acc += (basefreq * mt[slot->mult]) >> 1;
+	slot->in.phase_acc += phase_inc;
 	slot->in.phase_acc &= (1 << 19) - 1;
 	slot->in.phase_out = phase;
 

@@ -312,6 +312,9 @@ struct _esfm_chip
 	uint64_t write_buf_timestamp;
 
 	esfm_revision rev;
+
+	// Emulation-mode phase increments for the two active slots per channel.
+	uint32 emu_pg_inc[18][2];
 };
 
 #ifdef __cplusplus
