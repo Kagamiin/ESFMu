@@ -1176,6 +1176,10 @@ static const uint8_t eg_incstep[4][4] = {
 };
 
 /* ------------------------------------------------------------------------- */
+/* Expanded exponent lookup. Initialized alongside the existing LFSR jump
+ * tables; index is the clamped 13-bit logarithmic level. */
+static uint16 exprom_shifted[0x2000];
+
 static inline int13
 ESFM_envelope_wavegen(uint3 waveform, int16 phase, uint10 envelope)
 {
@@ -1186,7 +1190,7 @@ ESFM_envelope_wavegen(uint3 waveform, int16 phase, uint10 envelope)
 	{
 		level = 0x1fff;
 	}
-	out = exprom[level & 0xff] >> (level >> 8);
+	out = exprom_shifted[level];
 	if (lookup & 0x8000)
 	{
 		out = -out;
@@ -1532,10 +1536,14 @@ ESFM_lfsr_step(uint32_t noise)
 void
 ESFM_lfsr_jump_init(void)
 {
-	int v, k;
+	int v, k, level;
 	if (lfsr_jump72_ready)
 	{
 		return;
+	}
+	for (level = 0; level < 0x2000; level++)
+	{
+		exprom_shifted[level] = exprom[level & 0xff] >> (level >> 8);
 	}
 	for (v = 0; v < 256; v++)
 	{
@@ -1979,7 +1987,7 @@ ESFM_process_feedback(esfm_chip *chip)
 	{ \
 		level_ = 0x1fff; \
 	} \
-	o_ = exprom[level_ & 0xff] >> (level_ >> 8); \
+	o_ = exprom_shifted[level_]; \
 	if (lookup_ & 0x8000) \
 	{ \
 		o_ = -o_; \
