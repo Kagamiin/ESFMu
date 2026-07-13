@@ -212,7 +212,7 @@ struct _esfm_slot
 	esfm_slot_internal in;
 
 	// Write-time caches
-	// non-vibrato phase increment: (((f_num << block) >> 1) * mt[mult]) >> 1
+	// native non-vibrato phase increment: (((f_num << block) >> 1) * mt[mult]) >> 1
 	uint32 pg_inc;
 	// (t_level << 2) + (in.eg_ksl_offset >> kslshift[ksl])
 	uint16 eg_tl_ksl;
@@ -258,8 +258,9 @@ struct _esfm_chip
 	uint8 tremolo_pos;
 	uint8 vibrato_pos;
 	uint23 lfsr;
-	// number of slot-3s with rhy_noise set; nothing reads the LFSR when 0
+	// Number of native slot-3s with rhy_noise set; no native slot reads the LFSR when 0.
 	uint8 rhy_noise_slot3_count;
+	// Native-only flag: advance the LFSR with one 72-step jump this sample.
 	flag lfsr_batch;
 
 	flag rm_hh_bit2;
@@ -313,7 +314,7 @@ struct _esfm_chip
 
 	esfm_revision rev;
 
-	// Emulation-mode phase increments for the two active slots per channel.
+	// Emulation-mode non-vibrato phase increments for the two active slots per channel.
 	uint32 emu_pg_inc[18][2];
 };
 

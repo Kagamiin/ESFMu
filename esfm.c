@@ -1176,8 +1176,10 @@ static const uint8_t eg_incstep[4][4] = {
 };
 
 /* ------------------------------------------------------------------------- */
-/* Expanded exponent lookup. Initialized alongside the existing LFSR jump
- * tables. Entries above the 13-bit logarithmic clamp are all zero. */
+/* Expanded exponent lookup. Wave generation is skipped for envelopes >= 0x180,
+ * so the largest live index is 0x1fff + (0x17f << 3) = 0x2bf7. Round that up
+ * to 0x2c00; entries above the 13-bit logarithmic clamp are all zero. The table
+ * is initialized alongside the LFSR jump tables. */
 static uint16 exprom_shifted[0x2c00];
 
 static inline int13
@@ -1511,11 +1513,11 @@ ESFM_envelope_calc_emu(esfm_slot *slot)
 }
 
 /*
- * LFSR jump tables. Noise LFSR advances once per slot (72x per sample), but is
- * only read by slot-3 noise modes in native mode, or the rhythm slots in OPL
- * emu mode. When nothing can read it, a precomputed 72-step jump can replace
- * the 72 single steps. The step function is linear over GF(2) so it decomposes
- * into table lookups.
+ * Native mode advances the noise LFSR once per slot (72x per sample), but only
+ * slot-3 noise modes can read it. When no native slot can read it, a precomputed
+ * 72-step jump replaces the 72 scalar steps. The step function is linear over
+ * GF(2), so it decomposes into table lookups. Emulation mode advances 36 times
+ * per sample and retains scalar stepping: its table-driven jump measured slower.
  */
 static uint32_t lfsr_jump72_lo[256];
 static uint32_t lfsr_jump72_mid[256];
