@@ -59,6 +59,14 @@
 #include <string.h>
 #include <stdbool.h>
 
+#if defined(_MSC_VER)
+#define ESFM_FORCE_INLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define ESFM_FORCE_INLINE inline __attribute__((always_inline))
+#else
+#define ESFM_FORCE_INLINE inline
+#endif
+
 /*
  * Log-scale quarter sine table extracted from OPL3 ROM; taken straight from
  * Nuked OPL3 source code.
@@ -1197,7 +1205,7 @@ ESFM_envelope_wavegen(uint3 waveform, int16 phase, uint10 envelope)
 }
 
 /* ------------------------------------------------------------------------- */
-static __attribute__((always_inline)) inline void
+static ESFM_FORCE_INLINE void
 ESFM_envelope_calc_inner(esfm_slot *slot, const bool native)
 {
 	uint8 nonzero;
